@@ -1,7 +1,21 @@
 import type { DayLog, SessionKey } from '../types';
 
 const DATE_KEY_REGEX = /^(\d{4})-(\d{2})-(\d{2})$/;
-const WEEKDAY_VI = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'] as const;
+const WEEKDAY_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+const MONTH_EN = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const;
 
 function pad2(n: number): string {
   return String(n).padStart(2, '0');
@@ -14,7 +28,7 @@ function formatLocalDate(date: Date): string {
 function parseDateKey(dateKey: string): Date {
   const match = DATE_KEY_REGEX.exec(dateKey);
   if (!match) {
-    throw new Error(`Ngày không hợp lệ: "${dateKey}"`);
+    throw new Error(`Invalid date key: "${dateKey}"`);
   }
   const year = Number(match[1]);
   const month = Number(match[2]);
@@ -53,23 +67,23 @@ export function getLastNDates(n: number, endDateKey?: string): string[] {
 }
 
 /**
- * Formats minutes in Vietnamese hours/minutes (e.g., 0 -> "0p", 25 -> "25p",
- * 60 -> "1g", 95 -> "1g 35p"). Never displays pomodoro counts.
+ * Formats minutes in English hours/minutes (e.g., 0 -> "0m", 25 -> "25m",
+ * 60 -> "1h", 95 -> "1h 35m"). Never displays pomodoro counts.
  */
 export function formatMinutes(totalMinutes: number): string {
   if (!Number.isFinite(totalMinutes) || totalMinutes <= 0) {
-    return '0p';
+    return '0m';
   }
   const rounded = Math.round(totalMinutes);
   const hours = Math.floor(rounded / 60);
   const mins = rounded % 60;
   if (hours === 0) {
-    return `${mins}p`;
+    return `${mins}m`;
   }
   if (mins === 0) {
-    return `${hours}g`;
+    return `${hours}h`;
   }
-  return `${hours}g ${mins}p`;
+  return `${hours}h ${mins}m`;
 }
 
 export function getSessionMinutes(
@@ -92,15 +106,18 @@ export function getDayTotalMinutes(log: DayLog | undefined): number {
 }
 
 /**
- * Formats a YYYY-MM-DD key in Vietnamese: "Hôm nay" if it matches today,
- * otherwise e.g. "T5, 26/11" or "CN, 29/11".
+ * Formats a YYYY-MM-DD key in English: "Today" if it matches today,
+ * otherwise e.g. "Thu, Nov 26" or "Sun, Nov 29".
  */
-export function formatDateVi(dateKey: string, todayKey?: string): string {
+export function formatDateLabel(dateKey: string, todayKey?: string): string {
   const today = todayKey ?? getTodayDateKey();
   if (dateKey === today) {
-    return 'Hôm nay';
+    return 'Today';
   }
   const date = parseDateKey(dateKey);
-  const weekday = WEEKDAY_VI[date.getDay()];
-  return `${weekday}, ${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}`;
+  const weekday = WEEKDAY_EN[date.getDay()];
+  const month = MONTH_EN[date.getMonth()];
+  return `${weekday}, ${month} ${date.getDate()}`;
 }
+
+export const formatDateVi = formatDateLabel;

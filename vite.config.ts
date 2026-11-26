@@ -22,8 +22,8 @@ export default defineConfig({
       manifest: {
         name: 'PomoDay',
         short_name: 'PomoDay',
-        description: 'Theo dõi thời gian học tập tối giản chỉ với 1 chạm',
-        lang: 'vi',
+        description: 'Minimalist 1-tap Pomodoro study time tracker',
+        lang: 'en',
         start_url: '/',
         display: 'standalone',
         background_color: '#f2f6fa',

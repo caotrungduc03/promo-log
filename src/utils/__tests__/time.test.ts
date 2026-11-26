@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { DayLog } from '../../types';
 import {
-  formatDateVi,
+  formatDateLabel,
   formatMinutes,
   getDayTotalMinutes,
   getLastNDates,
@@ -36,13 +36,13 @@ describe('time utils', () => {
     ]);
   });
 
-  it('formatMinutes formats Vietnamese durations cleanly', () => {
-    expect(formatMinutes(0)).toBe('0p');
-    expect(formatMinutes(-10)).toBe('0p');
-    expect(formatMinutes(25)).toBe('25p');
-    expect(formatMinutes(60)).toBe('1g');
-    expect(formatMinutes(95)).toBe('1g 35p');
-    expect(formatMinutes(120)).toBe('2g');
+  it('formatMinutes formats English durations cleanly', () => {
+    expect(formatMinutes(0)).toBe('0m');
+    expect(formatMinutes(-10)).toBe('0m');
+    expect(formatMinutes(25)).toBe('25m');
+    expect(formatMinutes(60)).toBe('1h');
+    expect(formatMinutes(95)).toBe('1h 35m');
+    expect(formatMinutes(120)).toBe('2h');
   });
 
   it('calculates session and day total minutes using day pomodoroMinutes', () => {
@@ -62,9 +62,9 @@ describe('time utils', () => {
     expect(getDayTotalMinutes(log)).toBe(180);
   });
 
-  it('formatDateVi returns Hôm nay for today and weekday + DD/MM otherwise', () => {
-    expect(formatDateVi('2026-11-26', '2026-11-26')).toBe('Hôm nay');
-    expect(formatDateVi('2026-11-26', '2026-11-27')).toBe('T5, 26/11');
-    expect(formatDateVi('2026-11-29', '2026-11-27')).toBe('CN, 29/11');
+  it('formatDateLabel returns Today for today and weekday + Mon D otherwise', () => {
+    expect(formatDateLabel('2026-11-26', '2026-11-26')).toBe('Today');
+    expect(formatDateLabel('2026-11-26', '2026-11-27')).toBe('Thu, Nov 26');
+    expect(formatDateLabel('2026-11-29', '2026-11-27')).toBe('Sun, Nov 29');
   });
 });

@@ -56,38 +56,38 @@ export function createEmptyDayLog(
 
 function validateStoreObject(data: unknown): StudyStore {
   if (!isPlainObject(data)) {
-    throw new Error('Cấu trúc dữ liệu không hợp lệ: tệp phải là một đối tượng JSON.');
+    throw new Error('Invalid backup structure: file must contain a JSON object.');
   }
 
   if (!isValidPositiveMinutes(data.defaultPomodoroMinutes)) {
     throw new Error(
-      'Thời lượng mặc định (defaultPomodoroMinutes) phải là số nguyên từ 1 đến 240 phút.',
+      'Default duration (defaultPomodoroMinutes) must be an integer between 1 and 240 minutes.',
     );
   }
 
   if (!isPlainObject(data.logs)) {
-    throw new Error('Trường nhật ký (logs) không hợp lệ.');
+    throw new Error('Invalid logs field in backup file.');
   }
 
   const normalizedLogs: Record<string, DayLog> = {};
 
   for (const [key, rawLog] of Object.entries(data.logs)) {
     if (!DATE_KEY_REGEX.test(key)) {
-      throw new Error(`Khóa ngày không đúng định dạng YYYY-MM-DD: "${key}".`);
+      throw new Error(`Invalid date key (expected YYYY-MM-DD): "${key}".`);
     }
     if (!isPlainObject(rawLog)) {
-      throw new Error(`Dữ liệu của ngày ${key} không hợp lệ.`);
+      throw new Error(`Invalid log entry for date ${key}.`);
     }
     if (rawLog.date !== key) {
-      throw new Error(`Trường date không khớp với khóa ngày "${key}".`);
+      throw new Error(`Log date field does not match key "${key}".`);
     }
     if (!isValidPositiveMinutes(rawLog.pomodoroMinutes)) {
       throw new Error(
-        `Thời lượng pomodoro của ngày ${key} phải là số nguyên từ 1 đến 240 phút.`,
+        `Pomodoro duration for ${key} must be an integer between 1 and 240 minutes.`,
       );
     }
     if (!isPlainObject(rawLog.sessions)) {
-      throw new Error(`Dữ liệu các buổi học của ngày ${key} không hợp lệ.`);
+      throw new Error(`Invalid sessions object for date ${key}.`);
     }
 
     const { morning, afternoon, evening } = rawLog.sessions;
@@ -97,12 +97,12 @@ function validateStoreObject(data: unknown): StudyStore {
       !isValidSessionCount(evening)
     ) {
       throw new Error(
-        `Số phiên học (Sáng/Chiều/Tối) của ngày ${key} phải là số nguyên không âm.`,
+        `Session counts (Morning/Afternoon/Evening) for ${key} must be non-negative integers.`,
       );
     }
 
     if (typeof rawLog.updatedAt !== 'string' || rawLog.updatedAt.trim() === '') {
-      throw new Error(`Thời gian cập nhật (updatedAt) của ngày ${key} không hợp lệ.`);
+      throw new Error(`Invalid updatedAt timestamp for date ${key}.`);
     }
 
     normalizedLogs[key] = {
@@ -170,7 +170,7 @@ export function parseImportedStoreJson(raw: string): StudyStore {
   try {
     parsed = JSON.parse(raw);
   } catch {
-    throw new Error('Dữ liệu JSON không hợp lệ. Vui lòng kiểm tra lại tệp sao lưu.');
+    throw new Error('Invalid JSON data. Please check your backup file.');
   }
   return validateStoreObject(parsed);
 }

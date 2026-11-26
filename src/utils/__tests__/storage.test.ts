@@ -75,9 +75,9 @@ describe('storage utils', () => {
     expect(parsed).toEqual(store);
   });
 
-  it('parseImportedStoreJson throws readable Vietnamese errors on invalid input', () => {
-    expect(() => parseImportedStoreJson('invalid-json')).toThrow(/JSON không hợp lệ/);
-    expect(() => parseImportedStoreJson('[]')).toThrow(/đối tượng JSON/);
+  it('parseImportedStoreJson throws readable English errors on invalid input', () => {
+    expect(() => parseImportedStoreJson('invalid-json')).toThrow(/Invalid JSON/);
+    expect(() => parseImportedStoreJson('[]')).toThrow(/JSON object/);
     expect(() =>
       parseImportedStoreJson(
         JSON.stringify({ defaultPomodoroMinutes: 0, logs: {} }),
@@ -97,6 +97,6 @@ describe('storage utils', () => {
           },
         }),
       ),
-    ).toThrow(/không âm/);
+    ).toThrow(/non-negative integers/);
   });
 });

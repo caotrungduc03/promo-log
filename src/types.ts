@@ -7,9 +7,9 @@ export const SESSION_KEYS: readonly SessionKey[] = [
 ] as const;
 
 export const SESSION_LABELS: Record<SessionKey, string> = {
-  morning: 'Sáng',
-  afternoon: 'Chiều',
-  evening: 'Tối',
+  morning: 'Morning',
+  afternoon: 'Afternoon',
+  evening: 'Evening',
 };
 
 export const DEFAULT_POMODORO_MINUTES = 25;
