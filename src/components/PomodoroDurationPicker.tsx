@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Check, SlidersHorizontal, Star, Timer } from 'lucide-react';
+import { Check, RotateCcw, SlidersHorizontal, Timer } from 'lucide-react';
 
 export interface PomodoroDurationPickerProps {
   minutes: number;
@@ -124,11 +124,7 @@ export function PomodoroDurationPicker({
                 : 'bg-amber-50 text-amber-500 hover:bg-amber-100'
             }`}
           >
-            <Star
-              className="h-4 w-4"
-              fill={isDefault ? 'currentColor' : 'none'}
-              aria-hidden="true"
-            />
+            <RotateCcw className="h-4 w-4" aria-hidden="true" />
           </button>
         )}
       </div>
