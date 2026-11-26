@@ -3,6 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { DayLog } from '../../types';
 import { DailyLogger } from '../DailyLogger';
+import { HistoryLog } from '../HistoryLog';
 
 const TODAY = '2026-11-26';
 const YESTERDAY = '2026-11-25';
@@ -54,6 +55,7 @@ describe('DailyLogger 1-tap interactions', () => {
     const scrollRow = screen.getByTestId('session-scroll-morning');
     expect(scrollRow.className).toContain('flex-nowrap');
     expect(scrollRow.className).toContain('overflow-x-auto');
+    expect(scrollRow.className).toContain('thin-scrollbar');
 
     const morningSection = screen.getByRole('region', {
       name: 'Morning session',
@@ -219,7 +221,7 @@ describe('DailyLogger 1-tap interactions', () => {
     expect(screen.getByTestId('daily-total-time')).toHaveTextContent('0m');
   });
 
-  it('updates day pomodoroMinutes on chip tap and sets default via icon-only Star button', () => {
+  it('updates day pomodoroMinutes on chip tap and sets default via icon-only RotateCcw button', () => {
     const onChangeDefault = vi.fn();
     render(<DailyLoggerHarness onChangeDefaultMinutes={onChangeDefault} />);
 
@@ -249,5 +251,56 @@ describe('DailyLogger 1-tap interactions', () => {
 
     expect(onChangeDefault).toHaveBeenCalledWith(45);
     expect(defaultButton).toHaveAttribute('aria-pressed', 'true');
+  });
+});
+
+describe('HistoryLog pagination', () => {
+  it('paginates 7 logged days into 5 items on page 1 and 2 items on page 2', () => {
+    const logs: Record<string, DayLog> = {};
+    for (let day = 20; day <= 26; day += 1) {
+      const date = `2026-11-${String(day).padStart(2, '0')}`;
+      logs[date] = {
+        date,
+        pomodoroMinutes: 25,
+        sessions: { morning: 2, afternoon: 0, evening: 0 },
+        updatedAt: `${date}T10:00:00.000Z`,
+      };
+    }
+
+    const onSelectDate = vi.fn();
+    render(
+      <HistoryLog
+        logs={logs}
+        selectedDate={TODAY}
+        todayDate={TODAY}
+        onSelectDate={onSelectDate}
+      />,
+    );
+
+    const historySection = screen.getByRole('region', { name: 'Study log' });
+    expect(within(historySection).getAllByRole('listitem')).toHaveLength(5);
+    expect(within(historySection).getByText('1 / 2')).toBeInTheDocument();
+
+    const prevButton = within(historySection).getByRole('button', {
+      name: 'Previous page',
+    });
+    const nextButton = within(historySection).getByRole('button', {
+      name: 'Next page',
+    });
+
+    expect(prevButton).toBeDisabled();
+    expect(nextButton).toBeEnabled();
+
+    fireEvent.click(nextButton);
+
+    expect(within(historySection).getAllByRole('listitem')).toHaveLength(2);
+    expect(within(historySection).getByText('2 / 2')).toBeInTheDocument();
+    expect(prevButton).toBeEnabled();
+    expect(nextButton).toBeDisabled();
+
+    fireEvent.click(prevButton);
+
+    expect(within(historySection).getAllByRole('listitem')).toHaveLength(5);
+    expect(within(historySection).getByText('1 / 2')).toBeInTheDocument();
   });
 });
