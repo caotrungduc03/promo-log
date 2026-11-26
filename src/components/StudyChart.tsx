@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CloudSun, Moon, Pencil, Sun } from 'lucide-react';
+import { MoonStar, Pencil, Sun, Sunrise } from 'lucide-react';
 import {
   SESSION_KEYS,
   SESSION_LABELS,
@@ -7,7 +7,7 @@ import {
   type SessionKey,
 } from '../types';
 import {
-  formatDateVi,
+  formatDateLabel,
   formatMinutes,
   getDayTotalMinutes,
   getSessionMinutes,
@@ -33,13 +33,36 @@ const SESSION_ICON_CLASSES: Record<SessionKey, string> = {
   evening: 'text-violet-500',
 };
 
-const SESSION_ICONS: Record<SessionKey, typeof Sun> = {
-  morning: Sun,
-  afternoon: CloudSun,
-  evening: Moon,
+const SESSION_ICONS: Record<SessionKey, typeof Sunrise> = {
+  morning: Sunrise,
+  afternoon: Sun,
+  evening: MoonStar,
 };
 
-const WEEKDAY_SHORT_VI = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'] as const;
+const WEEKDAY_SHORT_EN = [
+  'Sun',
+  'Mon',
+  'Tue',
+  'Wed',
+  'Thu',
+  'Fri',
+  'Sat',
+] as const;
+
+const MONTH_SHORT_EN = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const;
 
 function parseLocalDateParts(dateKey: string): {
   year: number;
@@ -57,9 +80,9 @@ function parseLocalDateParts(dateKey: string): {
   };
 }
 
-function formatDayMonth(dateKey: string): string {
+function formatMonthDayEn(dateKey: string): string {
   const { day, month } = parseLocalDateParts(dateKey);
-  return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}`;
+  return `${MONTH_SHORT_EN[month - 1]} ${day}`;
 }
 
 function getShortAxisLabel(
@@ -71,18 +94,18 @@ function getShortAxisLabel(
 ): string {
   if (rangeDays === 7) {
     if (dateKey === todayDate) {
-      return 'H.nay';
+      return 'Today';
     }
     const { weekday } = parseLocalDateParts(dateKey);
-    return WEEKDAY_SHORT_VI[weekday];
+    return WEEKDAY_SHORT_EN[weekday];
   }
 
   const isLast = index === totalDays - 1;
   if (isLast) {
-    return dateKey === todayDate ? 'Hôm nay' : formatDayMonth(dateKey);
+    return dateKey === todayDate ? 'Today' : formatMonthDayEn(dateKey);
   }
   if (index === 0 || index === 9 || index === 19) {
-    return formatDayMonth(dateKey);
+    return formatMonthDayEn(dateKey);
   }
   return '';
 }
@@ -147,27 +170,30 @@ export function StudyChart({
 
   return (
     <section
-      aria-label="Biểu đồ thời gian học"
+      aria-label="Study time chart"
       className="rounded-3xl bg-white p-4 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.06)]"
     >
       {/* Header & Legend */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-slate-800">
-          Biểu đồ {rangeDays} ngày
+          Study Overview
         </h2>
         <div
           className="flex items-center gap-3 text-xs font-medium text-slate-500"
-          aria-label="Chú thích buổi học"
+          aria-label="Session legend"
         >
-          {SESSION_KEYS.map((key) => (
-            <span key={key} className="inline-flex items-center gap-1.5">
-              <span
-                className={`h-2.5 w-2.5 rounded-full ${SESSION_BAR_CLASSES[key]}`}
-                aria-hidden="true"
-              />
-              <span>{SESSION_LABELS[key]}</span>
-            </span>
-          ))}
+          {SESSION_KEYS.map((key) => {
+            const Icon = SESSION_ICONS[key];
+            return (
+              <span key={key} className="inline-flex items-center gap-1">
+                <Icon
+                  className={`h-3.5 w-3.5 ${SESSION_ICON_CLASSES[key]}`}
+                  aria-hidden="true"
+                />
+                <span>{SESSION_LABELS[key]}</span>
+              </span>
+            );
+          })}
         </div>
       </div>
 
@@ -197,9 +223,7 @@ export function StudyChart({
                 <div
                   key={tick}
                   className={
-                    tick === 0
-                      ? 'h-px bg-slate-200/80'
-                      : 'h-px bg-slate-100'
+                    tick === 0 ? 'h-px bg-slate-200/80' : 'h-px bg-slate-100'
                   }
                 />
               ))}
@@ -208,7 +232,7 @@ export function StudyChart({
             {/* Bars */}
             <div
               role="group"
-              aria-label={`Các cột thời gian học ${rangeDays} ngày`}
+              aria-label={`Study time bars for ${rangeDays} days`}
               className={`relative z-10 flex h-44 items-end ${
                 rangeDays === 7 ? 'gap-2 px-1' : 'gap-[3px]'
               }`}
@@ -226,7 +250,7 @@ export function StudyChart({
                 const eveningPct =
                   entry.total > 0 ? (entry.evening / entry.total) * 100 : 0;
 
-                const dateLabel = formatDateVi(entry.date, todayDate);
+                const dateLabel = formatDateLabel(entry.date, todayDate);
                 const totalLabel = formatMinutes(entry.total);
 
                 return (
@@ -241,9 +265,7 @@ export function StudyChart({
                     className={`group flex h-full flex-1 flex-col justify-end rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-emerald-500 ${
                       rangeDays === 7 ? 'px-1 pt-1' : 'pt-1'
                     } ${
-                      isSelected
-                        ? 'bg-emerald-50/70'
-                        : 'hover:bg-slate-50/90'
+                      isSelected ? 'bg-emerald-50/70' : 'hover:bg-slate-50/90'
                     }`}
                   >
                     {entry.total > 0 ? (
@@ -335,7 +357,7 @@ export function StudyChart({
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-slate-900">
-                {formatDateVi(selectedEntry.date, todayDate)}
+                {formatDateLabel(selectedEntry.date, todayDate)}
               </span>
               <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 tabular-nums">
                 {formatMinutes(selectedEntry.total)}
@@ -345,8 +367,8 @@ export function StudyChart({
             {onSelectDate && (
               <button
                 type="button"
-                aria-label="Chỉnh sửa ngày này"
-                title="Chỉnh sửa ngày này"
+                aria-label="Edit day"
+                title="Edit day"
                 onClick={() => onSelectDate(selectedEntry.date)}
                 className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-xs transition-colors hover:bg-emerald-600 active:scale-95"
               >
@@ -381,7 +403,9 @@ export function StudyChart({
         </div>
       ) : (
         <p className="mt-3 text-center text-xs text-slate-400">
-          Chạm vào cột để xem chi tiết
+          {maxDayMinutes === 0
+            ? 'No study data yet'
+            : 'Tap any bar to view breakdown'}
         </p>
       )}
     </section>

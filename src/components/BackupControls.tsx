@@ -1,5 +1,11 @@
 import { useRef, useState, type ChangeEvent } from 'react';
-import { AlertCircle, CheckCircle2, Download, Upload } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  DatabaseBackup,
+  Download,
+  Upload,
+} from 'lucide-react';
 import type { StudyStore } from '../types';
 import { exportStoreJson, parseImportedStoreJson } from '../utils/storage';
 import { getTodayDateKey } from '../utils/time';
@@ -22,7 +28,7 @@ function readFileAsText(file: File): Promise<string> {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result ?? ''));
     reader.onerror = () =>
-      reject(new Error('Không thể đọc nội dung tệp sao lưu.'));
+      reject(new Error('Could not read the backup file.'));
     reader.readAsText(file);
   });
 }
@@ -40,7 +46,7 @@ export function BackupControls({ store, onImportStore }: BackupControlsProps) {
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `study-tracker-backup-${getTodayDateKey()}.json`;
+      anchor.download = `pomoday-backup-${getTodayDateKey()}.json`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
@@ -48,12 +54,12 @@ export function BackupControls({ store, onImportStore }: BackupControlsProps) {
 
       setFeedback({
         type: 'success',
-        message: 'Đã tải xuống tệp sao lưu JSON.',
+        message: 'Backup JSON exported successfully.',
       });
     } catch {
       setFeedback({
         type: 'error',
-        message: 'Không thể xuất tệp sao lưu. Vui lòng thử lại.',
+        message: 'Failed to export backup file. Please try again.',
       });
     }
   };
@@ -75,13 +81,13 @@ export function BackupControls({ store, onImportStore }: BackupControlsProps) {
       const dayCount = Object.keys(parsedStore.logs).length;
       setFeedback({
         type: 'success',
-        message: `Khôi phục dữ liệu thành công (${dayCount} ngày học).`,
+        message: `Backup restored successfully (${dayCount} ${dayCount === 1 ? 'day' : 'days'}).`,
       });
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
-          : 'Tệp sao lưu không hợp lệ. Vui lòng kiểm tra lại.';
+          : 'Invalid backup file. Please check your JSON.';
       setFeedback({
         type: 'error',
         message,
@@ -93,13 +99,14 @@ export function BackupControls({ store, onImportStore }: BackupControlsProps) {
 
   return (
     <section
-      aria-label="Sao lưu và khôi phục dữ liệu"
+      aria-label="Backup and restore"
       className="rounded-3xl bg-white p-4 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.06)]"
     >
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-slate-800">
-          Dữ liệu JSON
-        </h2>
+      <div className="flex items-center gap-2">
+        <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+          <DatabaseBackup className="h-4 w-4" aria-hidden="true" />
+        </span>
+        <h2 className="text-sm font-semibold text-slate-800">Backup</h2>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2.5">
@@ -109,7 +116,7 @@ export function BackupControls({ store, onImportStore }: BackupControlsProps) {
           className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 active:scale-[0.98]"
         >
           <Download className="h-4 w-4" aria-hidden="true" />
-          <span>Sao lưu</span>
+          <span>Export JSON</span>
         </button>
 
         <button
@@ -118,14 +125,14 @@ export function BackupControls({ store, onImportStore }: BackupControlsProps) {
           className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-slate-100 px-3 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200 active:scale-[0.98]"
         >
           <Upload className="h-4 w-4" aria-hidden="true" />
-          <span>Khôi phục</span>
+          <span>Import JSON</span>
         </button>
 
         <input
           ref={fileInputRef}
           type="file"
           accept=".json,application/json"
-          aria-label="Chọn tệp JSON để khôi phục"
+          aria-label="Choose JSON backup file"
           onChange={handleFileChange}
           className="sr-only"
         />

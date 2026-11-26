@@ -32,7 +32,7 @@ export function StatsView({
       {/* Borderless Segmented Range Toggle */}
       <div
         role="group"
-        aria-label="Chọn khoảng thời gian thống kê"
+        aria-label="Select analytics time range"
         className="grid grid-cols-2 rounded-2xl bg-slate-200/70 p-1"
       >
         {RANGE_OPTIONS.map((option) => {
@@ -49,7 +49,7 @@ export function StatsView({
                   : 'text-slate-600 hover:text-slate-800'
               }`}
             >
-              {option} ngày
+              {option} Days
             </button>
           );
         })}

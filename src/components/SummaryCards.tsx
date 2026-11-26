@@ -25,7 +25,7 @@ export function SummaryCards({ days, logs, rangeDays }: SummaryCardsProps) {
 
   return (
     <section
-      aria-label="Tổng quan thời gian học"
+      aria-label="Study time summary"
       className="grid grid-cols-2 gap-3"
     >
       <div className="rounded-3xl bg-white p-4 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.06)]">
@@ -33,12 +33,12 @@ export function SummaryCards({ days, logs, rangeDays }: SummaryCardsProps) {
           <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
             <Clock className="h-4 w-4" aria-hidden="true" />
           </span>
-          <span>Tổng cộng</span>
+          <span>Total Time</span>
         </div>
         <p className="mt-3 text-2xl font-bold tracking-tight text-slate-900 tabular-nums">
           {formatMinutes(totalMinutes)}
         </p>
-        <p className="mt-1 text-xs text-slate-400">{rangeDays} ngày qua</p>
+        <p className="mt-1 text-xs text-slate-400">Last {rangeDays} days</p>
       </div>
 
       <div className="rounded-3xl bg-white p-4 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.06)]">
@@ -46,13 +46,13 @@ export function SummaryCards({ days, logs, rangeDays }: SummaryCardsProps) {
           <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-sky-100 text-sky-600">
             <TrendingUp className="h-4 w-4" aria-hidden="true" />
           </span>
-          <span>TB / ngày</span>
+          <span>Daily Avg</span>
         </div>
         <p className="mt-3 text-2xl font-bold tracking-tight text-slate-900 tabular-nums">
           {formatMinutes(averageMinutes)}
         </p>
         <p className="mt-1 text-xs text-slate-400 tabular-nums">
-          {activeDays}/{rangeDays} ngày có học
+          {activeDays}/{rangeDays} active days
         </p>
       </div>
     </section>

@@ -16,20 +16,20 @@ function createSampleStore(): StudyStore {
         date: '2026-11-26',
         pomodoroMinutes: 25,
         sessions: {
-          morning: 3, // 75p = 1g 15p
-          afternoon: 2, // 50p
-          evening: 1, // 25p
-        }, // total = 150p = 2g 30p
+          morning: 3, // 75m = 1h 15m
+          afternoon: 2, // 50m
+          evening: 1, // 25m
+        }, // total = 150m = 2h 30m
         updatedAt: '2026-11-26T10:00:00.000Z',
       },
       '2026-11-24': {
         date: '2026-11-24',
         pomodoroMinutes: 25,
         sessions: {
-          morning: 2, // 50p
-          afternoon: 1, // 25p
-          evening: 0, // 0p
-        }, // total = 75p = 1g 15p
+          morning: 2, // 50m
+          afternoon: 1, // 25m
+          evening: 0, // 0m
+        }, // total = 75m = 1h 15m
         updatedAt: '2026-11-24T10:00:00.000Z',
       },
     },
@@ -51,7 +51,7 @@ describe('StudyChart & StatsView', () => {
     const bars7 = screen.getAllByTestId(/^chart-bar-/);
     expect(bars7).toHaveLength(7);
 
-    fireEvent.click(screen.getByRole('button', { name: '30 ngày' }));
+    fireEvent.click(screen.getByRole('button', { name: '30 Days' }));
 
     const bars30 = screen.getAllByTestId(/^chart-bar-/);
     expect(bars30).toHaveLength(30);
@@ -70,24 +70,24 @@ describe('StudyChart & StatsView', () => {
       />,
     );
 
-    // Click today's bar (2g 30p total; morning 1g 15p, afternoon 50p, evening 25p)
+    // Click today's bar (2h 30m total; morning 1h 15m, afternoon 50m, evening 25m)
     fireEvent.click(screen.getByTestId(`chart-bar-${TODAY}`));
 
     const detail = screen.getByTestId('chart-day-detail');
-    expect(detail).toHaveTextContent('2g 30p');
-    expect(detail).toHaveTextContent('1g 15p');
-    expect(detail).toHaveTextContent('50p');
-    expect(detail).toHaveTextContent('25p');
+    expect(detail).toHaveTextContent('2h 30m');
+    expect(detail).toHaveTextContent('1h 15m');
+    expect(detail).toHaveTextContent('50m');
+    expect(detail).toHaveTextContent('25m');
 
-    // Also check 2026-11-24 (1g 15p total)
+    // Also check 2026-11-24 (1h 15m total)
     fireEvent.click(screen.getByTestId('chart-bar-2026-11-24'));
-    expect(screen.getByTestId('chart-day-detail')).toHaveTextContent('1g 15p');
+    expect(screen.getByTestId('chart-day-detail')).toHaveTextContent('1h 15m');
 
     // Never show raw pomodoro terminology
     expect(container.textContent?.toLowerCase()).not.toMatch(/pomodoro|pomo/);
   });
 
-  it('reveals Sáng/Chiều/Tối breakdown on tap and triggers onSelectDate when clicking Chỉnh sửa', () => {
+  it('reveals Morning/Afternoon/Evening breakdown on tap and triggers onSelectDate when clicking Edit day', () => {
     const store = createSampleStore();
     const days = getLastNDates(7, TODAY);
     const onSelectDate = vi.fn();
@@ -105,17 +105,15 @@ describe('StudyChart & StatsView', () => {
     fireEvent.click(screen.getByTestId(`chart-bar-${TODAY}`));
 
     const detail = screen.getByTestId('chart-day-detail');
-    expect(detail).toHaveTextContent('Hôm nay');
-    expect(detail).toHaveTextContent('Sáng');
-    expect(detail).toHaveTextContent('Chiều');
-    expect(detail).toHaveTextContent('Tối');
-    expect(detail).toHaveTextContent('1g 15p');
-    expect(detail).toHaveTextContent('50p');
-    expect(detail).toHaveTextContent('25p');
+    expect(detail).toHaveTextContent('Today');
+    expect(detail).toHaveTextContent('Morning');
+    expect(detail).toHaveTextContent('Afternoon');
+    expect(detail).toHaveTextContent('Evening');
+    expect(detail).toHaveTextContent('1h 15m');
+    expect(detail).toHaveTextContent('50m');
+    expect(detail).toHaveTextContent('25m');
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /Chỉnh sửa ngày này/i }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: /Edit day/i }));
     expect(onSelectDate).toHaveBeenCalledTimes(1);
     expect(onSelectDate).toHaveBeenCalledWith(TODAY);
   });
@@ -128,7 +126,7 @@ describe('BackupControls', () => {
 
     render(<BackupControls store={store} onImportStore={onImportStore} />);
 
-    const input = screen.getByLabelText('Chọn tệp JSON để khôi phục');
+    const input = screen.getByLabelText('Choose JSON backup file');
     const badFile = new File(['{not valid json'], 'broken.json', {
       type: 'application/json',
     });
@@ -136,7 +134,7 @@ describe('BackupControls', () => {
     fireEvent.change(input, { target: { files: [badFile] } });
 
     const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent(/JSON không hợp lệ/i);
+    expect(alert).toHaveTextContent(/json/i);
     expect(onImportStore).not.toHaveBeenCalled();
   });
 
@@ -159,10 +157,10 @@ describe('BackupControls', () => {
       <BackupControls store={currentStore} onImportStore={onImportStore} />,
     );
 
-    const input = screen.getByLabelText('Chọn tệp JSON để khôi phục');
+    const input = screen.getByLabelText('Choose JSON backup file');
     const validFile = new File(
       [JSON.stringify(importedStore)],
-      'study-tracker-backup-2026-11-26.json',
+      'pomoday-backup-2026-11-26.json',
       { type: 'application/json' },
     );
 
@@ -173,7 +171,7 @@ describe('BackupControls', () => {
     });
     expect(onImportStore).toHaveBeenCalledWith(importedStore);
     expect(screen.getByRole('status')).toHaveTextContent(
-      /Khôi phục dữ liệu thành công/i,
+      /Backup restored successfully/i,
     );
   });
 });
