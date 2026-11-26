@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BarChart3, Calendar, Clock } from 'lucide-react';
+import { BarChart3, BookOpenCheck, Calendar } from 'lucide-react';
 import { DailyLogger } from './components/DailyLogger';
 import { HistoryLog } from './components/HistoryLog';
 import { Logo } from './components/Logo';
 import { StatsView } from './components/StatsView';
 import type { DayLog, StudyStore } from './types';
 import { loadStore, saveStore, upsertDayLog } from './utils/storage';
-import { formatDateVi, getTodayDateKey } from './utils/time';
+import { formatDateLabel, getTodayDateKey } from './utils/time';
 
 type ActiveTab = 'today' | 'stats';
 
@@ -70,20 +70,20 @@ export default function App() {
             <button
               type="button"
               onClick={handleOpenDatePicker}
-              aria-label="Chọn ngày học"
+              aria-label="Select date"
               className="inline-flex min-h-10 items-center gap-1.5 rounded-2xl bg-slate-100/90 px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-emerald-50 hover:text-emerald-700 active:scale-[0.98]"
             >
               <Calendar
                 className="h-4 w-4 text-emerald-500 shrink-0"
                 aria-hidden="true"
               />
-              <span>{formatDateVi(selectedDate, todayDate)}</span>
+              <span>{formatDateLabel(selectedDate, todayDate)}</span>
             </button>
             <input
               ref={dateInputRef}
               type="date"
               value={selectedDate}
-              aria-label="Chọn ngày"
+              aria-label="Select date"
               onChange={(event) => {
                 const nextDate = event.target.value;
                 if (nextDate) {
@@ -126,7 +126,7 @@ export default function App() {
       </main>
 
       <nav
-        aria-label="Điều hướng chính"
+        aria-label="Main navigation"
         className="sticky bottom-0 z-10 bg-white/95 backdrop-blur-md shadow-[0_-4px_20px_-6px_rgba(15,23,42,0.08)] safe-bottom"
       >
         <div className="mx-auto max-w-md grid grid-cols-2 gap-1.5 px-3 pt-2">
@@ -140,8 +140,8 @@ export default function App() {
                 : 'text-slate-400 hover:text-slate-700'
             }`}
           >
-            <Clock className="h-5 w-5" aria-hidden="true" />
-            <span>Ghi nhận</span>
+            <BookOpenCheck className="h-5 w-5" aria-hidden="true" />
+            <span>Log</span>
           </button>
           <button
             type="button"
@@ -154,7 +154,7 @@ export default function App() {
             }`}
           >
             <BarChart3 className="h-5 w-5" aria-hidden="true" />
-            <span>Thống kê</span>
+            <span>Stats</span>
           </button>
         </div>
       </nav>
