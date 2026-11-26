@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Check, Clock, Pin, SlidersHorizontal } from 'lucide-react';
+import { Check, SlidersHorizontal, Star, Timer } from 'lucide-react';
 
 export interface PomodoroDurationPickerProps {
   minutes: number;
@@ -62,7 +62,7 @@ export function PomodoroDurationPicker({
 
   return (
     <section
-      aria-label="Thời lượng mỗi phiên Pomodoro"
+      aria-label="Pomodoro session length"
       className="rounded-3xl bg-white p-3.5 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.06)]"
     >
       <div className="flex flex-wrap items-center gap-2">
@@ -70,7 +70,7 @@ export function PomodoroDurationPicker({
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500"
           aria-hidden="true"
         >
-          <Clock className="h-4 w-4" />
+          <Timer className="h-4 w-4" />
         </span>
 
         {PRESET_MINUTES.map((preset) => {
@@ -87,7 +87,7 @@ export function PomodoroDurationPicker({
                   : 'bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700'
               }`}
             >
-              {preset}p
+              {preset}m
             </button>
           );
         })}
@@ -96,8 +96,8 @@ export function PomodoroDurationPicker({
           type="button"
           aria-expanded={showCustomInput}
           aria-pressed={isCustomActive}
-          aria-label="Tuỳ chỉnh thời lượng"
-          title="Tuỳ chỉnh thời lượng"
+          aria-label="Custom duration"
+          title="Custom duration"
           onClick={handleOpenCustom}
           className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-2xl px-3 text-sm font-semibold tabular-nums transition-all active:scale-95 ${
             isCustomActive
@@ -108,23 +108,27 @@ export function PomodoroDurationPicker({
           }`}
         >
           <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-          {isCustomActive && <span>{minutes}p</span>}
+          {isCustomActive && <span>{minutes}m</span>}
         </button>
 
         {onChangeDefaultMinutes && (
           <button
             type="button"
-            aria-label="Đặt làm mặc định"
-            title="Đặt làm mặc định"
+            aria-label="Set as default"
+            title="Set as default"
             aria-pressed={isDefault}
             onClick={() => onChangeDefaultMinutes(minutes)}
             className={`ml-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl transition-all active:scale-95 ${
               isDefault
-                ? 'bg-emerald-50 text-emerald-600'
-                : 'bg-amber-50 text-amber-600 hover:bg-amber-100'
+                ? 'bg-emerald-50 text-emerald-500'
+                : 'bg-amber-50 text-amber-500 hover:bg-amber-100'
             }`}
           >
-            <Pin className="h-4 w-4" aria-hidden="true" />
+            <Star
+              className="h-4 w-4"
+              fill={isDefault ? 'currentColor' : 'none'}
+              aria-hidden="true"
+            />
           </button>
         )}
       </div>
@@ -137,7 +141,7 @@ export function PomodoroDurationPicker({
           <button
             type="button"
             onClick={() => handleStepCustom(-5)}
-            aria-label="Giảm 5 phút"
+            aria-label="Decrease by 5 minutes"
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-sm font-semibold text-slate-700 shadow-xs hover:bg-emerald-50 hover:text-emerald-700 active:scale-95"
           >
             -5
@@ -149,21 +153,21 @@ export function PomodoroDurationPicker({
             max={MAX_MINUTES}
             value={draftMinutes}
             onChange={(event) => setDraftMinutes(event.target.value)}
-            aria-label="Số phút mỗi phiên"
+            aria-label="Minutes per session"
             className="h-10 w-20 rounded-xl bg-white px-2.5 text-center text-sm font-semibold text-slate-900 shadow-xs"
           />
           <button
             type="button"
             onClick={() => handleStepCustom(5)}
-            aria-label="Tăng 5 phút"
+            aria-label="Increase by 5 minutes"
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-sm font-semibold text-slate-700 shadow-xs hover:bg-emerald-50 hover:text-emerald-700 active:scale-95"
           >
             +5
           </button>
           <button
             type="submit"
-            aria-label="Áp dụng"
-            title="Áp dụng"
+            aria-label="Apply"
+            title="Apply"
             className="ml-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-sm shadow-emerald-500/25 transition-colors hover:bg-emerald-600 active:scale-95"
           >
             <Check className="h-4 w-4" aria-hidden="true" />

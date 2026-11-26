@@ -1,7 +1,7 @@
-import { CalendarDays, CloudSun, Moon, Sun } from 'lucide-react';
+import { CalendarDays, MoonStar, Sun, Sunrise } from 'lucide-react';
 import type { DayLog } from '../types';
 import {
-  formatDateVi,
+  formatDateLabel,
   formatMinutes,
   getDayTotalMinutes,
   getSessionMinutes,
@@ -28,7 +28,7 @@ export function HistoryLog({
 
   return (
     <section
-      aria-label="Lịch sử học tập"
+      aria-label="Study log"
       className="rounded-3xl bg-white p-4 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.06)]"
     >
       <div className="mb-3 flex items-center justify-between gap-2">
@@ -39,7 +39,7 @@ export function HistoryLog({
           >
             <CalendarDays className="h-4 w-4" />
           </span>
-          <h2 className="text-sm font-semibold text-slate-900">Lịch sử</h2>
+          <h2 className="text-sm font-semibold text-slate-900">Study Log</h2>
         </div>
         <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-500 tabular-nums">
           {entries.length}
@@ -48,7 +48,7 @@ export function HistoryLog({
 
       {entries.length === 0 ? (
         <p className="rounded-2xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-400">
-          Chưa có ngày nào được ghi nhận
+          No study sessions yet
         </p>
       ) : (
         <ul className="space-y-2">
@@ -73,7 +73,7 @@ export function HistoryLog({
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-semibold">
-                      {formatDateVi(log.date, todayDate)}
+                      {formatDateLabel(log.date, todayDate)}
                     </span>
                     <span
                       className={`text-sm font-bold tabular-nums ${
@@ -86,30 +86,30 @@ export function HistoryLog({
 
                   <div className="flex flex-wrap items-center gap-2 text-xs font-semibold tabular-nums">
                     <span
-                      aria-label={`Sáng ${formatMinutes(morningMinutes)}`}
+                      aria-label={`Morning ${formatMinutes(morningMinutes)}`}
                       className="inline-flex items-center gap-1 rounded-xl bg-amber-50/90 px-2 py-1 text-amber-700"
                     >
-                      <Sun
+                      <Sunrise
                         className="h-3.5 w-3.5 text-amber-500"
                         aria-hidden="true"
                       />
                       {formatMinutes(morningMinutes)}
                     </span>
                     <span
-                      aria-label={`Chiều ${formatMinutes(afternoonMinutes)}`}
+                      aria-label={`Afternoon ${formatMinutes(afternoonMinutes)}`}
                       className="inline-flex items-center gap-1 rounded-xl bg-sky-50/90 px-2 py-1 text-sky-700"
                     >
-                      <CloudSun
+                      <Sun
                         className="h-3.5 w-3.5 text-sky-500"
                         aria-hidden="true"
                       />
                       {formatMinutes(afternoonMinutes)}
                     </span>
                     <span
-                      aria-label={`Tối ${formatMinutes(eveningMinutes)}`}
+                      aria-label={`Evening ${formatMinutes(eveningMinutes)}`}
                       className="inline-flex items-center gap-1 rounded-xl bg-violet-50/90 px-2 py-1 text-violet-700"
                     >
-                      <Moon
+                      <MoonStar
                         className="h-3.5 w-3.5 text-violet-500"
                         aria-hidden="true"
                       />

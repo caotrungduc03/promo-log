@@ -25,10 +25,10 @@ function DailyLoggerHarness({
   return (
     <div>
       <button type="button" onClick={() => setSelectedDate(YESTERDAY)}>
-        Chuyển hôm qua
+        Switch to yesterday
       </button>
       <button type="button" onClick={() => setSelectedDate(TODAY)}>
-        Chuyển hôm nay
+        Switch to today
       </button>
       <DailyLogger
         selectedDate={selectedDate}
@@ -48,92 +48,131 @@ function DailyLoggerHarness({
 }
 
 describe('DailyLogger 1-tap interactions', () => {
-  it('activates 3 pomodoros (1g 15p) when clicking icon #3', () => {
+  it('renders numbered items in a horizontally scrollable row and activates 3 sessions (1h 15m)', () => {
     render(<DailyLoggerHarness />);
 
-    const morningSection = screen.getByRole('region', { name: 'Buổi Sáng' });
-    fireEvent.click(
-      within(morningSection).getByRole('button', { name: 'Sáng: phiên 3' }),
-    );
+    const scrollRow = screen.getByTestId('session-scroll-morning');
+    expect(scrollRow.className).toContain('flex-nowrap');
+    expect(scrollRow.className).toContain('overflow-x-auto');
 
+    const morningSection = screen.getByRole('region', {
+      name: 'Morning session',
+    });
+    const firstIcon = within(morningSection).getByRole('button', {
+      name: 'Morning: session 1',
+    });
+    const thirdIcon = within(morningSection).getByRole('button', {
+      name: 'Morning: session 3',
+    });
+
+    expect(firstIcon).toHaveTextContent('1');
+    expect(thirdIcon).toHaveTextContent('3');
+
+    fireEvent.click(thirdIcon);
+
+    expect(firstIcon).toHaveAttribute('aria-pressed', 'true');
     expect(
-      within(morningSection).getByRole('button', { name: 'Sáng: phiên 1' }),
+      within(morningSection).getByRole('button', {
+        name: 'Morning: session 2',
+      }),
     ).toHaveAttribute('aria-pressed', 'true');
+    expect(thirdIcon).toHaveAttribute('aria-pressed', 'true');
     expect(
-      within(morningSection).getByRole('button', { name: 'Sáng: phiên 2' }),
-    ).toHaveAttribute('aria-pressed', 'true');
-    expect(
-      within(morningSection).getByRole('button', { name: 'Sáng: phiên 3' }),
-    ).toHaveAttribute('aria-pressed', 'true');
-    expect(
-      within(morningSection).getByRole('button', { name: 'Sáng: phiên 4' }),
+      within(morningSection).getByRole('button', {
+        name: 'Morning: session 4',
+      }),
     ).toHaveAttribute('aria-pressed', 'false');
 
-    expect(within(morningSection).getByText('1g 15p')).toBeInTheDocument();
-    expect(screen.getByTestId('daily-total-time')).toHaveTextContent('1g 15p');
+    expect(within(morningSection).getByText('1h 15m')).toBeInTheDocument();
+    expect(screen.getByTestId('daily-total-time')).toHaveTextContent('1h 15m');
   });
 
-  it('adds an inactive 6th icon on + without changing total, then activates all 6 (2g 30p) on clicking #6', () => {
+  it('adds an inactive numbered 6th slot on + without changing total, then activates all 6 (2h 30m) on clicking #6', () => {
     render(<DailyLoggerHarness />);
 
-    const morningSection = screen.getByRole('region', { name: 'Buổi Sáng' });
+    const morningSection = screen.getByRole('region', {
+      name: 'Morning session',
+    });
     fireEvent.click(
-      within(morningSection).getByRole('button', { name: 'Sáng: thêm phiên' }),
+      within(morningSection).getByRole('button', {
+        name: 'Morning: add session',
+      }),
     );
 
     const sixthIcon = within(morningSection).getByRole('button', {
-      name: 'Sáng: phiên 6',
+      name: 'Morning: session 6',
     });
+    expect(sixthIcon).toHaveTextContent('6');
     expect(sixthIcon).toHaveAttribute('aria-pressed', 'false');
-    expect(within(morningSection).getByText('0p')).toBeInTheDocument();
-    expect(screen.getByTestId('daily-total-time')).toHaveTextContent('0p');
+    expect(within(morningSection).getByText('0m')).toBeInTheDocument();
+    expect(screen.getByTestId('daily-total-time')).toHaveTextContent('0m');
 
     fireEvent.click(sixthIcon);
 
     for (let i = 1; i <= 6; i += 1) {
       expect(
         within(morningSection).getByRole('button', {
-          name: `Sáng: phiên ${i}`,
+          name: `Morning: session ${i}`,
         }),
       ).toHaveAttribute('aria-pressed', 'true');
     }
 
-    expect(within(morningSection).getByText('2g 30p')).toBeInTheDocument();
-    expect(screen.getByTestId('daily-total-time')).toHaveTextContent('2g 30p');
+    expect(within(morningSection).getByText('2h 30m')).toBeInTheDocument();
+    expect(screen.getByTestId('daily-total-time')).toHaveTextContent('2h 30m');
   });
 
   it('resets unused extra slots to 5 on date change and remount while preserving active count', () => {
     const { unmount } = render(<DailyLoggerHarness />);
 
-    const morningSection = screen.getByRole('region', { name: 'Buổi Sáng' });
+    const morningSection = screen.getByRole('region', {
+      name: 'Morning session',
+    });
     fireEvent.click(
-      within(morningSection).getByRole('button', { name: 'Sáng: phiên 2' }),
+      within(morningSection).getByRole('button', {
+        name: 'Morning: session 2',
+      }),
     );
     fireEvent.click(
-      within(morningSection).getByRole('button', { name: 'Sáng: thêm phiên' }),
+      within(morningSection).getByRole('button', {
+        name: 'Morning: add session',
+      }),
     );
     fireEvent.click(
-      within(morningSection).getByRole('button', { name: 'Sáng: thêm phiên' }),
+      within(morningSection).getByRole('button', {
+        name: 'Morning: add session',
+      }),
     );
 
     expect(
-      within(morningSection).getByRole('button', { name: 'Sáng: phiên 7' }),
+      within(morningSection).getByRole('button', {
+        name: 'Morning: session 7',
+      }),
     ).toHaveAttribute('aria-pressed', 'false');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Chuyển hôm qua' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Switch to yesterday' }),
+    );
     expect(
-      within(morningSection).queryByRole('button', { name: 'Sáng: phiên 6' }),
+      within(morningSection).queryByRole('button', {
+        name: 'Morning: session 6',
+      }),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Chuyển hôm nay' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to today' }));
     expect(
-      within(morningSection).queryByRole('button', { name: 'Sáng: phiên 6' }),
+      within(morningSection).queryByRole('button', {
+        name: 'Morning: session 6',
+      }),
     ).not.toBeInTheDocument();
     expect(
-      within(morningSection).getByRole('button', { name: 'Sáng: phiên 2' }),
+      within(morningSection).getByRole('button', {
+        name: 'Morning: session 2',
+      }),
     ).toHaveAttribute('aria-pressed', 'true');
     expect(
-      within(morningSection).getByRole('button', { name: 'Sáng: phiên 3' }),
+      within(morningSection).getByRole('button', {
+        name: 'Morning: session 3',
+      }),
     ).toHaveAttribute('aria-pressed', 'false');
 
     unmount();
@@ -145,58 +184,70 @@ describe('DailyLogger 1-tap interactions', () => {
       updatedAt: '2026-11-26T00:00:00.000Z',
     };
     render(<DailyLoggerHarness initialLog={savedLog} />);
-    const remountedMorning = screen.getByRole('region', { name: 'Buổi Sáng' });
+    const remountedMorning = screen.getByRole('region', {
+      name: 'Morning session',
+    });
     expect(
-      within(remountedMorning).getByRole('button', { name: 'Sáng: phiên 6' }),
+      within(remountedMorning).getByRole('button', {
+        name: 'Morning: session 6',
+      }),
     ).toHaveAttribute('aria-pressed', 'true');
     expect(
-      within(remountedMorning).queryByRole('button', { name: 'Sáng: phiên 7' }),
+      within(remountedMorning).queryByRole('button', {
+        name: 'Morning: session 7',
+      }),
     ).not.toBeInTheDocument();
   });
 
-  it('resets to 0 (0p) when clicking icon #1 while count is 1', () => {
+  it('resets to 0 (0m) when clicking icon #1 while count is 1', () => {
     render(<DailyLoggerHarness />);
 
     const afternoonSection = screen.getByRole('region', {
-      name: 'Buổi Chiều',
+      name: 'Afternoon session',
     });
     const firstIcon = within(afternoonSection).getByRole('button', {
-      name: 'Chiều: phiên 1',
+      name: 'Afternoon: session 1',
     });
 
     fireEvent.click(firstIcon);
     expect(firstIcon).toHaveAttribute('aria-pressed', 'true');
-    expect(within(afternoonSection).getByText('25p')).toBeInTheDocument();
+    expect(within(afternoonSection).getByText('25m')).toBeInTheDocument();
 
     fireEvent.click(firstIcon);
     expect(firstIcon).toHaveAttribute('aria-pressed', 'false');
-    expect(within(afternoonSection).getByText('0p')).toBeInTheDocument();
-    expect(screen.getByTestId('daily-total-time')).toHaveTextContent('0p');
+    expect(within(afternoonSection).getByText('0m')).toBeInTheDocument();
+    expect(screen.getByTestId('daily-total-time')).toHaveTextContent('0m');
   });
 
-  it('updates day pomodoroMinutes on chip tap and pins default via icon-only pin button', () => {
+  it('updates day pomodoroMinutes on chip tap and sets default via icon-only Star button', () => {
     const onChangeDefault = vi.fn();
     render(<DailyLoggerHarness onChangeDefaultMinutes={onChangeDefault} />);
 
-    const eveningSection = screen.getByRole('region', { name: 'Buổi Tối' });
+    const eveningSection = screen.getByRole('region', {
+      name: 'Evening session',
+    });
     fireEvent.click(
-      within(eveningSection).getByRole('button', { name: 'Tối: phiên 2' }),
+      within(eveningSection).getByRole('button', {
+        name: 'Evening: session 2',
+      }),
     );
-    expect(within(eveningSection).getByText('50p')).toBeInTheDocument();
-    expect(screen.getByTestId('daily-total-time')).toHaveTextContent('50p');
+    expect(within(eveningSection).getByText('50m')).toBeInTheDocument();
+    expect(screen.getByTestId('daily-total-time')).toHaveTextContent('50m');
 
-    const chip45 = screen.getByRole('button', { name: '45p' });
+    const chip45 = screen.getByRole('button', { name: '45m' });
     fireEvent.click(chip45);
 
     expect(chip45).toHaveAttribute('aria-pressed', 'true');
-    expect(within(eveningSection).getByText('1g 30p')).toBeInTheDocument();
-    expect(screen.getByTestId('daily-total-time')).toHaveTextContent('1g 30p');
+    expect(within(eveningSection).getByText('1h 30m')).toBeInTheDocument();
+    expect(screen.getByTestId('daily-total-time')).toHaveTextContent('1h 30m');
 
-    const pinButton = screen.getByRole('button', { name: 'Đặt làm mặc định' });
-    expect(pinButton).toHaveAttribute('aria-pressed', 'false');
-    fireEvent.click(pinButton);
+    const defaultButton = screen.getByRole('button', {
+      name: 'Set as default',
+    });
+    expect(defaultButton).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(defaultButton);
 
     expect(onChangeDefault).toHaveBeenCalledWith(45);
-    expect(pinButton).toHaveAttribute('aria-pressed', 'true');
+    expect(defaultButton).toHaveAttribute('aria-pressed', 'true');
   });
 });

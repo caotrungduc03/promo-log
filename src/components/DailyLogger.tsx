@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react';
+import { GraduationCap } from 'lucide-react';
 import {
   SESSION_KEYS,
   SESSION_LABELS,
@@ -64,12 +64,12 @@ export function DailyLogger({
   return (
     <div className="flex flex-col gap-3.5">
       <section
-        aria-label="Tổng thời gian học trong ngày"
+        aria-label="Total study time"
         className="flex items-center justify-between gap-3 rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-500 px-5 py-4 text-white shadow-lg shadow-emerald-500/20"
       >
         <div>
           <p className="text-xs font-medium tracking-wide text-emerald-50/90">
-            Tổng thời gian
+            Total Study Time
           </p>
           <p
             data-testid="daily-total-time"
@@ -83,7 +83,7 @@ export function DailyLogger({
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/20 text-white"
           aria-hidden="true"
         >
-          <Sparkles className="h-5 w-5" />
+          <GraduationCap className="h-5 w-5" />
         </span>
       </section>
 
