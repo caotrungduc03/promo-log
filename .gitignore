@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Vite / cache
+.vite/
+*.tsbuildinfo
+
+# Local env & editor
+*.local
+.env
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db

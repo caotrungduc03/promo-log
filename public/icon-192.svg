@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <defs>
+    <linearGradient id="pomoday-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#0d9488" />
+    </linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="46" fill="url(#pomoday-bg)" />
+  <circle cx="96" cy="98" r="52" fill="#ffffff" opacity="0.16" />
+  <circle cx="96" cy="98" r="40" fill="none" stroke="#ffffff" stroke-width="10" />
+  <path
+    d="M96 70v28l20 12"
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="10"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M142 38l3 9 9 3-9 3-3 9-3-9-9-3 9-3z"
+    fill="#fef08a"
+  />
+</svg>
