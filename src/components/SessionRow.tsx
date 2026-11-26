@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Flame, MoonStar, Plus, Sun, Sunrise } from 'lucide-react';
 import type { SessionKey } from '../types';
 import { formatMinutes } from '../utils/time';
@@ -74,6 +74,26 @@ export function SessionRow({
   const theme = SESSION_THEMES[sessionKey];
   const SessionIcon = theme.icon;
 
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const handleWheel = (event: WheelEvent) => {
+      if (
+        el.scrollWidth > el.clientWidth &&
+        Math.abs(event.deltaY) > Math.abs(event.deltaX)
+      ) {
+        event.preventDefault();
+        el.scrollLeft += event.deltaY;
+      }
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
+
   const handleTapIcon = (indexOneBased: number) => {
     if (indexOneBased === 1 && safeCount === 1) {
       onChangeCount(0);
@@ -95,7 +115,7 @@ export function SessionRow({
   return (
     <section
       aria-label={`${label} session`}
-      className="rounded-3xl bg-white p-4 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.06)]"
+      className="min-w-0 rounded-3xl bg-white p-4 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.06)]"
     >
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
@@ -119,7 +139,7 @@ export function SessionRow({
       <div
         ref={scrollRef}
         data-testid={`session-scroll-${sessionKey}`}
-        className="no-scrollbar flex flex-nowrap items-center gap-2 overflow-x-auto pb-1"
+        className="thin-scrollbar flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto pb-2"
       >
         {Array.from({ length: visibleCount }, (_, idx) => {
           const indexOneBased = idx + 1;
