@@ -162,12 +162,19 @@ export function BackupControls({ store, onImportStore }: BackupControlsProps) {
         });
       }
     } catch (error) {
+      const rawMessage =
+        error instanceof Error
+          ? error.message
+          : 'Failed to sync with Google Sheet.';
+      const isUnauthorized = /unauthorized/i.test(rawMessage);
+      if (isUnauthorized) {
+        setShowSyncSettings(true);
+      }
       setFeedback({
         type: 'error',
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to sync with Google Sheet.',
+        message: isUnauthorized
+          ? 'Unauthorized — please check Sync Secret in Sync settings.'
+          : rawMessage,
       });
     } finally {
       setIsSyncing(false);

@@ -100,4 +100,28 @@ describe('BackupControls Google Sheet Sync', () => {
       /already up to date/i,
     );
   });
+
+  it('opens settings with a clear hint when Worker returns Unauthorized', async () => {
+    window.localStorage.setItem(
+      SYNC_CONFIG_STORAGE_KEY,
+      JSON.stringify({
+        workerUrl: 'https://my-worker.example.workers.dev',
+        syncSecret: '',
+      }),
+    );
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({ error: 'Unauthorized' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<BackupControls store={sampleStore} onImportStore={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /sync to sheet/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /unauthorized.*sync secret/i,
+    );
+    expect(screen.getByLabelText(/sync secret/i)).toBeInTheDocument();
+  });
 });
