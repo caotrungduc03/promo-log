@@ -23,13 +23,12 @@ import {
   type TwoWaySyncPlan,
 } from '../utils/sheetSync';
 import { exportStoreJson, parseImportedStoreJson } from '../utils/storage';
-import {
-  formatDateLabel,
-  formatMinutes,
-  getDayTotalMinutes,
-  getSessionMinutes,
-  getTodayDateKey,
-} from '../utils/time';
+import { getTodayDateKey } from '../utils/time';
+
+function formatConflictDate(dateKey: string): string {
+  const [year, month, day] = dateKey.split('-');
+  return year && month && day ? `${day}/${month}/${year}` : dateKey;
+}
 
 export interface BackupControlsProps {
   store: StudyStore;
@@ -222,10 +221,6 @@ export function BackupControls({ store, onImportStore }: BackupControlsProps) {
           conflicts: outcome.conflicts,
           plan: outcome.plan,
         });
-        setFeedback({
-          type: 'error',
-          message: `Sync conflict detected for ${outcome.conflicts.length} ${outcome.conflicts.length === 1 ? 'day' : 'days'}. Choose whether to overwrite the database or pull from it.`,
-        });
       } else {
         applySyncedOutcome(outcome);
       }
@@ -236,14 +231,28 @@ export function BackupControls({ store, onImportStore }: BackupControlsProps) {
     }
   };
 
-  const handleConfirmConflictResolution = async () => {
-    if (!pendingConflicts) return;
-    const allChosen = pendingConflicts.conflicts.every(
+  const handleResolveConflict = async (
+    date: string,
+    choice: ConflictResolution,
+  ) => {
+    if (!pendingConflicts || isSyncing) return;
+
+    const nextChoices = { ...conflictChoices, [date]: choice };
+    const remaining = pendingConflicts.conflicts.filter(
       (conflict) =>
-        conflictChoices[conflict.date] === 'local' ||
-        conflictChoices[conflict.date] === 'remote',
+        nextChoices[conflict.date] !== 'local' &&
+        nextChoices[conflict.date] !== 'remote',
     );
-    if (!allChosen) return;
+
+    setConflictChoices(nextChoices);
+
+    if (remaining.length > 0) {
+      setPendingConflicts({
+        ...pendingConflicts,
+        conflicts: remaining,
+      });
+      return;
+    }
 
     setIsSyncing(true);
     setFeedback(null);
@@ -251,7 +260,7 @@ export function BackupControls({ store, onImportStore }: BackupControlsProps) {
       const result = await resolveTwoWaySyncConflicts(
         store,
         pendingConflicts.plan,
-        conflictChoices,
+        nextChoices,
         syncConfig,
       );
       setPendingConflicts(null);
@@ -351,112 +360,42 @@ export function BackupControls({ store, onImportStore }: BackupControlsProps) {
             aria-label="Sync conflicts"
             className="mt-3 space-y-2.5 rounded-2xl bg-amber-50/90 p-3"
           >
-            <div className="flex items-center gap-2 text-xs font-semibold text-amber-900">
-              <AlertTriangle
-                className="h-4 w-4 shrink-0 text-amber-600"
-                aria-hidden="true"
-              />
-              <span>Resolve sync conflicts</span>
-            </div>
+            {pendingConflicts.conflicts.map((conflict) => (
+              <div key={conflict.date} className="space-y-2">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-900">
+                  <AlertTriangle
+                    className="h-4 w-4 shrink-0 text-amber-600"
+                    aria-hidden="true"
+                  />
+                  <span className="tabular-nums">
+                    Sync conflict - {formatConflictDate(conflict.date)}
+                  </span>
+                </div>
 
-            <div className="space-y-2">
-              {pendingConflicts.conflicts.map((conflict) => {
-                const choice = conflictChoices[conflict.date];
-                const todayKey = getTodayDateKey();
-                const dateLabel = formatDateLabel(conflict.date, todayKey);
-                const formatBreakdown = (log: typeof conflict.local) =>
-                  `${formatMinutes(getDayTotalMinutes(log))} (M ${formatMinutes(getSessionMinutes(log, 'morning'))} · A ${formatMinutes(getSessionMinutes(log, 'afternoon'))} · E ${formatMinutes(getSessionMinutes(log, 'evening'))})`;
-
-                return (
-                  <div
-                    key={conflict.date}
-                    className="space-y-2 rounded-xl bg-white p-2.5 text-xs shadow-xs"
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <button
+                    type="button"
+                    disabled={isSyncing}
+                    onClick={() =>
+                      handleResolveConflict(conflict.date, 'local')
+                    }
+                    className="rounded-xl bg-emerald-600 px-3 py-2 font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
                   >
-                    <p className="font-semibold text-slate-900">{dateLabel}</p>
-                    <div className="space-y-1 text-slate-600">
-                      <p>
-                        <span className="font-semibold text-slate-800">
-                          This device:
-                        </span>{' '}
-                        {formatBreakdown(conflict.local)}
-                      </p>
-                      <p>
-                        <span className="font-semibold text-slate-800">
-                          Database:
-                        </span>{' '}
-                        {formatBreakdown(conflict.remote)}
-                      </p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      <button
-                        type="button"
-                        aria-pressed={choice === 'local'}
-                        onClick={() =>
-                          setConflictChoices((prev) => ({
-                            ...prev,
-                            [conflict.date]: 'local',
-                          }))
-                        }
-                        className={`rounded-lg px-2.5 py-2 font-semibold transition-colors ${
-                          choice === 'local'
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                        }`}
-                      >
-                        Overwrite DB
-                      </button>
-                      <button
-                        type="button"
-                        aria-pressed={choice === 'remote'}
-                        onClick={() =>
-                          setConflictChoices((prev) => ({
-                            ...prev,
-                            [conflict.date]: 'remote',
-                          }))
-                        }
-                        className={`rounded-lg px-2.5 py-2 font-semibold transition-colors ${
-                          choice === 'remote'
-                            ? 'bg-sky-600 text-white'
-                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                        }`}
-                      >
-                        Pull from DB
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                disabled={isSyncing}
-                onClick={() => {
-                  setPendingConflicts(null);
-                  setConflictChoices({});
-                  setFeedback(null);
-                }}
-                className="rounded-xl bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={
-                  isSyncing ||
-                  !pendingConflicts.conflicts.every(
-                    (conflict) =>
-                      conflictChoices[conflict.date] === 'local' ||
-                      conflictChoices[conflict.date] === 'remote',
-                  )
-                }
-                onClick={handleConfirmConflictResolution}
-                className="rounded-xl bg-amber-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Apply sync
-              </button>
-            </div>
+                    Overwrite DB
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSyncing}
+                    onClick={() =>
+                      handleResolveConflict(conflict.date, 'remote')
+                    }
+                    className="rounded-xl bg-sky-600 px-3 py-2 font-semibold text-white transition-colors hover:bg-sky-700 disabled:opacity-60"
+                  >
+                    Pull from DB
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 

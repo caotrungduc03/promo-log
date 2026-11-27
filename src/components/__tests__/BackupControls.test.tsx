@@ -168,16 +168,11 @@ describe('BackupControls Google Sheet Sync', () => {
     const conflictRegion = await screen.findByRole('region', {
       name: /sync conflicts/i,
     });
-    expect(conflictRegion).toHaveTextContent(/1h 15m/i);
-    expect(conflictRegion).toHaveTextContent(/50m/i);
+    expect(conflictRegion).toHaveTextContent(/sync conflict/i);
+    expect(conflictRegion).toHaveTextContent('27/11/2026');
 
-    const applyButton = screen.getByRole('button', { name: /apply sync/i });
-    expect(applyButton).toBeDisabled();
-
-    // Test Pull from DB choice
+    // Clicking Pull from DB executes immediately without extra confirmation
     fireEvent.click(screen.getByRole('button', { name: /pull from db/i }));
-    expect(applyButton).toBeEnabled();
-    fireEvent.click(applyButton);
 
     await waitFor(() => {
       expect(onImportStore).toHaveBeenCalledTimes(1);
@@ -191,7 +186,7 @@ describe('BackupControls Google Sheet Sync', () => {
 
     unmount();
 
-    // Next sync: test Overwrite DB choice
+    // Next sync: test Overwrite DB executes immediately on click
     fetchMock
       .mockResolvedValueOnce({
         ok: true,
@@ -218,7 +213,6 @@ describe('BackupControls Google Sheet Sync', () => {
     fireEvent.click(screen.getByRole('button', { name: /sync to sheet/i }));
     await screen.findByRole('region', { name: /sync conflicts/i });
     fireEvent.click(screen.getByRole('button', { name: /overwrite db/i }));
-    fireEvent.click(screen.getByRole('button', { name: /apply sync/i }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(3);
