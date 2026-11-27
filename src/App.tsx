@@ -5,7 +5,7 @@ import { HistoryLog } from './components/HistoryLog';
 import { Logo } from './components/Logo';
 import { StatsView } from './components/StatsView';
 import type { DayLog, StudyStore } from './types';
-import { loadStore, saveStore, upsertDayLog } from './utils/storage';
+import { deleteDayLog, loadStore, saveStore, upsertDayLog } from './utils/storage';
 import { formatDateLabel, getTodayDateKey } from './utils/time';
 
 type ActiveTab = 'today' | 'stats';
@@ -23,6 +23,10 @@ export default function App() {
 
   const handleUpdateLog = useCallback((nextLog: DayLog) => {
     setStore((prev) => upsertDayLog(prev, nextLog));
+  }, []);
+
+  const handleDeleteLog = useCallback((date: string) => {
+    setStore((prev) => deleteDayLog(prev, date));
   }, []);
 
   const handleChangeDefaultMinutes = useCallback((minutes: number) => {
@@ -113,6 +117,7 @@ export default function App() {
               selectedDate={selectedDate}
               todayDate={todayDate}
               onSelectDate={handleSelectDateAndFocus}
+              onDeleteLog={handleDeleteLog}
             />
           </div>
         ) : (

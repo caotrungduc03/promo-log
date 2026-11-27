@@ -14,21 +14,19 @@ function createSampleStore(): StudyStore {
     logs: {
       '2026-11-26': {
         date: '2026-11-26',
-        pomodoroMinutes: 25,
         sessions: {
-          morning: 3, // 75m = 1h 15m
-          afternoon: 2, // 50m
-          evening: 1, // 25m
+          morning: [25, 50], // mixed durations = 75m = 1h 15m
+          afternoon: [20, 30], // mixed durations = 50m
+          evening: [25], // 25m
         }, // total = 150m = 2h 30m
         updatedAt: '2026-11-26T10:00:00.000Z',
       },
       '2026-11-24': {
         date: '2026-11-24',
-        pomodoroMinutes: 25,
         sessions: {
-          morning: 2, // 50m
-          afternoon: 1, // 25m
-          evening: 0, // 0m
+          morning: [45], // 45m
+          afternoon: [30], // 30m
+          evening: [], // 0m
         }, // total = 75m = 1h 15m
         updatedAt: '2026-11-24T10:00:00.000Z',
       },
@@ -37,7 +35,7 @@ function createSampleStore(): StudyStore {
 }
 
 describe('StudyChart & StatsView', () => {
-  it('renders 7-day and 30-day bars cleanly via StatsView toggle', () => {
+  it('renders 7-day and 30-day bars and mixed-duration totals cleanly via StatsView toggle', () => {
     const store = createSampleStore();
     render(
       <StatsView
@@ -48,6 +46,10 @@ describe('StudyChart & StatsView', () => {
       />,
     );
 
+    // Total across 7 days: 150m + 75m = 225m = 3h 45m, 2/7 active days
+    expect(screen.getByText('3h 45m')).toBeInTheDocument();
+    expect(screen.getByText('2/7 active days')).toBeInTheDocument();
+
     const bars7 = screen.getAllByTestId(/^chart-bar-/);
     expect(bars7).toHaveLength(7);
 
@@ -55,9 +57,10 @@ describe('StudyChart & StatsView', () => {
 
     const bars30 = screen.getAllByTestId(/^chart-bar-/);
     expect(bars30).toHaveLength(30);
+    expect(screen.getByText('2/30 active days')).toBeInTheDocument();
   });
 
-  it('displays formatted hours/minutes and never displays raw pomodoro counts', () => {
+  it('displays formatted hours/minutes for mixed-duration sessions and never displays raw pomodoro counts', () => {
     const store = createSampleStore();
     const days = getLastNDates(7, TODAY);
 
@@ -70,7 +73,7 @@ describe('StudyChart & StatsView', () => {
       />,
     );
 
-    // Click today's bar (2h 30m total; morning 1h 15m, afternoon 50m, evening 25m)
+    // Click today's bar (2h 30m total; morning [25, 50] = 1h 15m, afternoon [20, 30] = 50m, evening [25] = 25m)
     fireEvent.click(screen.getByTestId(`chart-bar-${TODAY}`));
 
     const detail = screen.getByTestId('chart-day-detail');
@@ -79,9 +82,12 @@ describe('StudyChart & StatsView', () => {
     expect(detail).toHaveTextContent('50m');
     expect(detail).toHaveTextContent('25m');
 
-    // Also check 2026-11-24 (1h 15m total)
+    // Also check 2026-11-24 (45m + 30m = 1h 15m total)
     fireEvent.click(screen.getByTestId('chart-bar-2026-11-24'));
-    expect(screen.getByTestId('chart-day-detail')).toHaveTextContent('1h 15m');
+    const pastDetail = screen.getByTestId('chart-day-detail');
+    expect(pastDetail).toHaveTextContent('1h 15m');
+    expect(pastDetail).toHaveTextContent('45m');
+    expect(pastDetail).toHaveTextContent('30m');
 
     // Never show raw pomodoro terminology
     expect(container.textContent?.toLowerCase()).not.toMatch(/pomodoro|pomo/);
@@ -145,8 +151,7 @@ describe('BackupControls', () => {
       logs: {
         '2026-11-25': {
           date: '2026-11-25',
-          pomodoroMinutes: 30,
-          sessions: { morning: 2, afternoon: 1, evening: 0 },
+          sessions: { morning: [25, 50], afternoon: [30], evening: [] },
           updatedAt: '2026-11-25T12:00:00.000Z',
         },
       },
