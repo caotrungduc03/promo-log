@@ -80,34 +80,6 @@ function SwipeableHistoryItem({
   const afternoonMinutes = getSessionMinutes(log, 'afternoon');
   const eveningMinutes = getSessionMinutes(log, 'evening');
 
-  if (isConfirmingDelete) {
-    return (
-      <div className="flex items-center justify-between gap-2 rounded-2xl bg-rose-50 px-3.5 py-3">
-        <span className="text-sm font-semibold text-rose-900">
-          Delete {dateLabel}?
-        </span>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            aria-label="Cancel delete"
-            onClick={onCancelDelete}
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-slate-600 transition-colors hover:bg-slate-100 active:scale-95"
-          >
-            <X className="h-4 w-4" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            aria-label="Confirm delete"
-            onClick={() => onConfirmDelete(log.date)}
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-500 text-white shadow-sm shadow-rose-500/25 transition-colors hover:bg-rose-600 active:scale-95"
-          >
-            <Check className="h-4 w-4" aria-hidden="true" />
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   const translateX = dragOffset ?? (isOpen ? REVEAL_OFFSET : 0);
   const showDeleteAction = isOpen || (dragOffset !== null && dragOffset < 0);
 
@@ -180,9 +152,9 @@ function SwipeableHistoryItem({
 
   return (
     <div className="relative overflow-hidden rounded-2xl">
-      {canDelete && (
+      {canDelete && !isConfirmingDelete && (
         <div
-          className={`absolute inset-y-0 right-0 flex w-[76px] items-stretch transition-opacity duration-150 ${
+          className={`absolute inset-y-0 right-0 flex w-[92px] items-stretch transition-opacity duration-150 ${
             showDeleteAction
               ? 'opacity-100'
               : 'pointer-events-none opacity-0'
@@ -192,23 +164,55 @@ function SwipeableHistoryItem({
             type="button"
             aria-label={`Delete log for ${dateLabel}`}
             onClick={() => onRequestDelete(log.date)}
-            className="flex w-full items-center justify-center bg-rose-500 text-white transition-colors hover:bg-rose-600 active:bg-rose-700"
+            className="flex w-full items-center justify-center bg-rose-500 pl-4 text-white transition-colors hover:bg-rose-600 active:bg-rose-700"
           >
             <Trash2 className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       )}
 
+      {isConfirmingDelete && (
+        <div className="absolute inset-0 z-20 flex items-center justify-between gap-2 rounded-2xl bg-rose-50 px-3.5">
+          <span className="text-sm font-semibold text-rose-900">
+            Delete {dateLabel}?
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="Cancel delete"
+              onClick={onCancelDelete}
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-slate-600 transition-colors hover:bg-slate-100 active:scale-95"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              aria-label="Confirm delete"
+              onClick={() => onConfirmDelete(log.date)}
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-500 text-white shadow-sm shadow-rose-500/25 transition-colors hover:bg-rose-600 active:scale-95"
+            >
+              <Check className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      )}
+
       <button
         type="button"
+        aria-hidden={isConfirmingDelete}
+        tabIndex={isConfirmingDelete ? -1 : undefined}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={finishDrag}
         onPointerCancel={finishDrag}
         onClick={handleClick}
         aria-current={isSelected ? 'date' : undefined}
-        style={{ transform: `translateX(${translateX}px)` }}
-        className={`relative z-10 flex w-full touch-pan-y flex-col gap-2 rounded-2xl p-3 text-left select-none ${
+        style={{
+          transform: `translateX(${isConfirmingDelete ? 0 : translateX}px)`,
+        }}
+        className={`relative z-10 flex w-full touch-pan-y flex-col gap-2 rounded-l-2xl p-3 text-left select-none ${
+          isConfirmingDelete ? 'invisible pointer-events-none' : ''
+        } ${
           dragOffset === null ? 'transition-transform duration-200 ease-out' : ''
         } ${
           isSelected
@@ -227,30 +231,33 @@ function SwipeableHistoryItem({
           </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 text-sm font-semibold tabular-nums">
+        <div className="grid grid-cols-3 gap-2 text-sm font-semibold tabular-nums">
           <span
             aria-label={`Morning ${formatMinutes(morningMinutes)}`}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-amber-50/90 px-2.5 py-1 text-amber-700"
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-amber-50/90 px-2 py-1 whitespace-nowrap text-amber-700"
           >
             <Sunrise
-              className="h-4 w-4 text-amber-500"
+              className="h-4 w-4 shrink-0 text-amber-500"
               aria-hidden="true"
             />
             {formatMinutes(morningMinutes)}
           </span>
           <span
             aria-label={`Afternoon ${formatMinutes(afternoonMinutes)}`}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-sky-50/90 px-2.5 py-1 text-sky-700"
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-sky-50/90 px-2 py-1 whitespace-nowrap text-sky-700"
           >
-            <Sun className="h-4 w-4 text-sky-500" aria-hidden="true" />
+            <Sun
+              className="h-4 w-4 shrink-0 text-sky-500"
+              aria-hidden="true"
+            />
             {formatMinutes(afternoonMinutes)}
           </span>
           <span
             aria-label={`Evening ${formatMinutes(eveningMinutes)}`}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-violet-50/90 px-2.5 py-1 text-violet-700"
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-violet-50/90 px-2 py-1 whitespace-nowrap text-violet-700"
           >
             <MoonStar
-              className="h-4 w-4 text-violet-500"
+              className="h-4 w-4 shrink-0 text-violet-500"
               aria-hidden="true"
             />
             {formatMinutes(eveningMinutes)}
