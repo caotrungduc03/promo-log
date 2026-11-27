@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { GraduationCap } from 'lucide-react';
+import { GraduationCap, Plus, Save } from 'lucide-react';
 import {
   SESSION_KEYS,
   SESSION_LABELS,
@@ -7,7 +7,7 @@ import {
   type SessionKey,
 } from '../types';
 import { createEmptyDayLog } from '../utils/storage';
-import { formatMinutes, getDayTotalMinutes } from '../utils/time';
+import { formatMinutes } from '../utils/time';
 import { PomodoroDurationPicker } from './PomodoroDurationPicker';
 import { SessionRow } from './SessionRow';
 
@@ -27,6 +27,29 @@ const EMPTY_SESSIONS: DayLog['sessions'] = {
   evening: [],
 };
 
+function clampMinutes(mins: number): number {
+  return Math.min(240, Math.max(1, Math.round(mins)));
+}
+
+function areArraysEqual(a: number[], b: number[]): boolean {
+  return a.length === b.length && a.every((val, idx) => val === b[idx]);
+}
+
+function areSessionsEqual(
+  a: DayLog['sessions'],
+  b: DayLog['sessions'],
+): boolean {
+  return SESSION_KEYS.every((key) => areArraysEqual(a[key], b[key]));
+}
+
+function sumSessionsMinutes(sessions: DayLog['sessions']): number {
+  return SESSION_KEYS.reduce(
+    (daySum, key) =>
+      daySum + sessions[key].reduce((sum, mins) => sum + Math.max(0, mins), 0),
+    0,
+  );
+}
+
 export function DailyLogger({
   selectedDate,
   log,
@@ -35,30 +58,51 @@ export function DailyLogger({
   onChangeDefaultMinutes,
 }: DailyLoggerProps) {
   const [activeMinutes, setActiveMinutes] = useState(defaultPomodoroMinutes);
-  const sessions = log?.sessions ?? EMPTY_SESSIONS;
-  const totalMinutes = getDayTotalMinutes(log);
+  const [prevSelectedDate, setPrevSelectedDate] = useState(selectedDate);
+  const [prevLog, setPrevLog] = useState(log);
+  const [draftSessions, setDraftSessions] = useState<DayLog['sessions']>(
+    () => log?.sessions ?? EMPTY_SESSIONS,
+  );
 
-  const buildBaseLog = (): DayLog =>
-    log ?? createEmptyDayLog(selectedDate, activeMinutes);
+  if (prevSelectedDate !== selectedDate || prevLog !== log) {
+    setPrevSelectedDate(selectedDate);
+    setPrevLog(log);
+    setDraftSessions(log?.sessions ?? EMPTY_SESSIONS);
+  }
+
+  const savedSessions = log?.sessions ?? EMPTY_SESSIONS;
+  const hasUnsavedChanges = !areSessionsEqual(draftSessions, savedSessions);
+  const totalMinutes = sumSessionsMinutes(draftSessions);
 
   const handleSessionChange = (sessionKey: SessionKey, nextItems: number[]) => {
-    const base = buildBaseLog();
+    setDraftSessions((prev) => ({
+      ...prev,
+      [sessionKey]: nextItems.map(clampMinutes),
+    }));
+  };
+
+  const handleActiveMinutesChange = (nextMinutes: number) => {
+    setActiveMinutes(clampMinutes(nextMinutes));
+  };
+
+  const handleNewDraft = () => {
+    setDraftSessions(EMPTY_SESSIONS);
+  };
+
+  const handleCommitLog = () => {
+    if (!hasUnsavedChanges) return;
+    const base = log ?? createEmptyDayLog(selectedDate, activeMinutes);
     onUpdateLog({
       ...base,
       date: selectedDate,
       pomodoroMinutes: activeMinutes,
       sessions: {
-        ...base.sessions,
-        [sessionKey]: nextItems.map((mins) =>
-          Math.min(240, Math.max(1, Math.round(mins))),
-        ),
+        morning: draftSessions.morning.map(clampMinutes),
+        afternoon: draftSessions.afternoon.map(clampMinutes),
+        evening: draftSessions.evening.map(clampMinutes),
       },
       updatedAt: new Date().toISOString(),
     });
-  };
-
-  const handleActiveMinutesChange = (nextMinutes: number) => {
-    setActiveMinutes(Math.min(240, Math.max(1, Math.round(nextMinutes))));
   };
 
   return (
@@ -100,12 +144,42 @@ export function DailyLogger({
             key={sessionKey}
             sessionKey={sessionKey}
             label={SESSION_LABELS[sessionKey]}
-            items={sessions[sessionKey]}
+            items={draftSessions[sessionKey]}
             pomodoroMinutes={activeMinutes}
             resetKey={selectedDate}
             onChange={(nextItems) => handleSessionChange(sessionKey, nextItems)}
           />
         ))}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2.5">
+        <button
+          type="button"
+          onClick={handleNewDraft}
+          disabled={totalMinutes === 0}
+          className={`inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-all ${
+            totalMinutes > 0
+              ? 'bg-white text-slate-700 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.06)] hover:bg-slate-50 active:scale-[0.99]'
+              : 'cursor-not-allowed bg-slate-200/70 text-slate-400'
+          }`}
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          <span>New</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={handleCommitLog}
+          disabled={!hasUnsavedChanges}
+          className={`inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-all ${
+            hasUnsavedChanges
+              ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/25 hover:bg-emerald-600 active:scale-[0.99]'
+              : 'cursor-not-allowed bg-slate-200/80 text-slate-400'
+          }`}
+        >
+          <Save className="h-4 w-4" aria-hidden="true" />
+          <span>Save</span>
+        </button>
       </div>
     </div>
   );

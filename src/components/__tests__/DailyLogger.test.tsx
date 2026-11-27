@@ -12,10 +12,12 @@ function DailyLoggerHarness({
   initialLog,
   initialDate = TODAY,
   onChangeDefaultMinutes,
+  onLogSaved,
 }: {
   initialLog?: DayLog;
   initialDate?: string;
   onChangeDefaultMinutes?: (minutes: number) => void;
+  onLogSaved?: (nextLog: DayLog) => void;
 }) {
   const [selectedDate, setSelectedDate] = useState(initialDate);
   const [defaultMinutes, setDefaultMinutes] = useState(25);
@@ -36,9 +38,10 @@ function DailyLoggerHarness({
         todayDate={TODAY}
         log={logs[selectedDate]}
         defaultPomodoroMinutes={defaultMinutes}
-        onUpdateLog={(nextLog) =>
-          setLogs((prev) => ({ ...prev, [nextLog.date]: nextLog }))
-        }
+        onUpdateLog={(nextLog) => {
+          setLogs((prev) => ({ ...prev, [nextLog.date]: nextLog }));
+          onLogSaved?.(nextLog);
+        }}
         onChangeDefaultMinutes={(minutes) => {
           setDefaultMinutes(minutes);
           onChangeDefaultMinutes?.(minutes);
@@ -134,6 +137,7 @@ describe('DailyLogger 1-tap interactions', () => {
         name: 'Morning: session 2',
       }),
     );
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     fireEvent.click(
       within(morningSection).getByRole('button', {
         name: 'Morning: add session',
@@ -276,6 +280,61 @@ describe('DailyLogger 1-tap interactions', () => {
     expect(resetButton).toBeDisabled();
     expect(within(morningSection).getByText('1h 15m')).toBeInTheDocument();
     expect(screen.getByTestId('daily-total-time')).toHaveTextContent('1h 15m');
+  });
+
+  it('commits changes to the database only when clicking Save and clears draft on New', () => {
+    const onLogSaved = vi.fn();
+    render(<DailyLoggerHarness onLogSaved={onLogSaved} />);
+
+    const newButton = screen.getByRole('button', { name: 'New' });
+    const saveButton = screen.getByRole('button', { name: 'Save' });
+    expect(newButton).toBeDisabled();
+    expect(saveButton).toBeDisabled();
+
+    const morningSection = screen.getByRole('region', {
+      name: 'Morning session',
+    });
+    fireEvent.click(
+      within(morningSection).getByRole('button', {
+        name: 'Morning: session 2',
+      }),
+    );
+
+    expect(onLogSaved).not.toHaveBeenCalled();
+    expect(newButton).toBeEnabled();
+    expect(saveButton).toBeEnabled();
+
+    fireEvent.click(newButton);
+    expect(screen.getByTestId('daily-total-time')).toHaveTextContent('0m');
+    expect(newButton).toBeDisabled();
+    expect(saveButton).toBeDisabled();
+    expect(onLogSaved).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      within(morningSection).getByRole('button', {
+        name: 'Morning: session 2',
+      }),
+    );
+    fireEvent.click(saveButton);
+    expect(onLogSaved).toHaveBeenCalledTimes(1);
+    expect(onLogSaved.mock.calls[0][0].sessions.morning).toEqual([25, 25]);
+    expect(saveButton).toBeDisabled();
+
+    const afternoonSection = screen.getByRole('region', {
+      name: 'Afternoon session',
+    });
+    fireEvent.click(
+      within(afternoonSection).getByRole('button', {
+        name: 'Afternoon: session 1',
+      }),
+    );
+
+    expect(onLogSaved).toHaveBeenCalledTimes(1);
+    expect(saveButton).toBeEnabled();
+
+    fireEvent.click(saveButton);
+    expect(onLogSaved).toHaveBeenCalledTimes(2);
+    expect(onLogSaved.mock.calls[1][0].sessions.afternoon).toEqual([25]);
   });
 });
 
