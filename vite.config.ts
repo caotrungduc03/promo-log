@@ -22,7 +22,8 @@ export default defineConfig({
       manifest: {
         name: 'Promo Log',
         short_name: 'Promo Log',
-        description: 'Minimalist 1-tap Pomodoro study time tracker',
+        description:
+          'Track daily study hours across morning, afternoon, and evening Pomodoro sessions with 7/30-day analytics, offline PWA support, and Google Sheets sync.',
         lang: 'en',
         start_url: '/',
         display: 'standalone',
