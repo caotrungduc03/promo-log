@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { GraduationCap } from 'lucide-react';
 import {
   SESSION_KEYS,
@@ -20,6 +21,12 @@ export interface DailyLoggerProps {
   onSelectDate?: (date: string) => void;
 }
 
+const EMPTY_SESSIONS: DayLog['sessions'] = {
+  morning: [],
+  afternoon: [],
+  evening: [],
+};
+
 export function DailyLogger({
   selectedDate,
   log,
@@ -27,38 +34,31 @@ export function DailyLogger({
   onUpdateLog,
   onChangeDefaultMinutes,
 }: DailyLoggerProps) {
-  const pomodoroMinutes = log?.pomodoroMinutes ?? defaultPomodoroMinutes;
-  const sessions = log?.sessions ?? {
-    morning: 0,
-    afternoon: 0,
-    evening: 0,
-  };
+  const [activeMinutes, setActiveMinutes] = useState(defaultPomodoroMinutes);
+  const sessions = log?.sessions ?? EMPTY_SESSIONS;
   const totalMinutes = getDayTotalMinutes(log);
 
   const buildBaseLog = (): DayLog =>
-    log ?? createEmptyDayLog(selectedDate, defaultPomodoroMinutes);
+    log ?? createEmptyDayLog(selectedDate, activeMinutes);
 
-  const handleSessionChange = (sessionKey: SessionKey, nextCount: number) => {
+  const handleSessionChange = (sessionKey: SessionKey, nextItems: number[]) => {
     const base = buildBaseLog();
     onUpdateLog({
       ...base,
       date: selectedDate,
+      pomodoroMinutes: activeMinutes,
       sessions: {
         ...base.sessions,
-        [sessionKey]: Math.max(0, Math.round(nextCount)),
+        [sessionKey]: nextItems.map((mins) =>
+          Math.min(240, Math.max(1, Math.round(mins))),
+        ),
       },
       updatedAt: new Date().toISOString(),
     });
   };
 
-  const handleDayMinutesChange = (nextMinutes: number) => {
-    const base = buildBaseLog();
-    onUpdateLog({
-      ...base,
-      date: selectedDate,
-      pomodoroMinutes: Math.min(240, Math.max(1, Math.round(nextMinutes))),
-      updatedAt: new Date().toISOString(),
-    });
+  const handleActiveMinutesChange = (nextMinutes: number) => {
+    setActiveMinutes(Math.min(240, Math.max(1, Math.round(nextMinutes))));
   };
 
   return (
@@ -88,9 +88,9 @@ export function DailyLogger({
       </section>
 
       <PomodoroDurationPicker
-        minutes={pomodoroMinutes}
+        minutes={activeMinutes}
         defaultMinutes={defaultPomodoroMinutes}
-        onChangeDayMinutes={handleDayMinutesChange}
+        onChangeDayMinutes={handleActiveMinutesChange}
         onChangeDefaultMinutes={onChangeDefaultMinutes}
       />
 
@@ -100,12 +100,10 @@ export function DailyLogger({
             key={sessionKey}
             sessionKey={sessionKey}
             label={SESSION_LABELS[sessionKey]}
-            count={sessions[sessionKey]}
-            pomodoroMinutes={pomodoroMinutes}
+            items={sessions[sessionKey]}
+            pomodoroMinutes={activeMinutes}
             resetKey={selectedDate}
-            onChangeCount={(nextCount) =>
-              handleSessionChange(sessionKey, nextCount)
-            }
+            onChange={(nextItems) => handleSessionChange(sessionKey, nextItems)}
           />
         ))}
       </div>

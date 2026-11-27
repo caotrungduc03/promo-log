@@ -182,7 +182,11 @@ describe('DailyLogger 1-tap interactions', () => {
     const savedLog: DayLog = {
       date: TODAY,
       pomodoroMinutes: 25,
-      sessions: { morning: 6, afternoon: 0, evening: 0 },
+      sessions: {
+        morning: [25, 25, 25, 25, 25, 25],
+        afternoon: [],
+        evening: [],
+      },
       updatedAt: '2026-11-26T00:00:00.000Z',
     };
     render(<DailyLoggerHarness initialLog={savedLog} />);
@@ -201,7 +205,7 @@ describe('DailyLogger 1-tap interactions', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('resets to 0 (0m) when clicking icon #1 while count is 1', () => {
+  it('removes the last item when clicking the last active icon (including #1 -> 0m)', () => {
     render(<DailyLoggerHarness />);
 
     const afternoonSection = screen.getByRole('region', {
@@ -213,48 +217,69 @@ describe('DailyLogger 1-tap interactions', () => {
 
     fireEvent.click(firstIcon);
     expect(firstIcon).toHaveAttribute('aria-pressed', 'true');
-    expect(within(afternoonSection).getByText('25m')).toBeInTheDocument();
+    expect(firstIcon).toHaveTextContent('25m');
+    expect(screen.getByTestId('session-total-afternoon')).toHaveTextContent(
+      '25m',
+    );
 
     fireEvent.click(firstIcon);
     expect(firstIcon).toHaveAttribute('aria-pressed', 'false');
-    expect(within(afternoonSection).getByText('0m')).toBeInTheDocument();
+    expect(screen.getByTestId('session-total-afternoon')).toHaveTextContent(
+      '0m',
+    );
     expect(screen.getByTestId('daily-total-time')).toHaveTextContent('0m');
   });
 
-  it('updates day pomodoroMinutes on chip tap and sets default via icon-only RotateCcw button', () => {
-    const onChangeDefault = vi.fn();
-    render(<DailyLoggerHarness onChangeDefaultMinutes={onChangeDefault} />);
+  it('supports mixed pomodoro durations in one day and resets picker via RotateCcw without altering logged items', () => {
+    render(<DailyLoggerHarness />);
 
-    const eveningSection = screen.getByRole('region', {
-      name: 'Evening session',
+    const morningSection = screen.getByRole('region', {
+      name: 'Morning session',
     });
-    fireEvent.click(
-      within(eveningSection).getByRole('button', {
-        name: 'Evening: session 2',
-      }),
+    const resetButton = screen.getByRole('button', {
+      name: 'Reset to default',
+    });
+    expect(resetButton).toBeDisabled();
+
+    // Log first item at default 25m
+    const firstIcon = within(morningSection).getByRole('button', {
+      name: 'Morning: session 1',
+    });
+    fireEvent.click(firstIcon);
+    expect(firstIcon).toHaveTextContent('25m');
+    expect(screen.getByTestId('daily-total-time')).toHaveTextContent('25m');
+
+    // Switch picker to 50m — already logged 25m item must stay unchanged
+    const chip50 = screen.getByRole('button', { name: '50m' });
+    fireEvent.click(chip50);
+    expect(chip50).toHaveAttribute('aria-pressed', 'true');
+    expect(resetButton).toBeEnabled();
+    expect(firstIcon).toHaveTextContent('25m');
+    expect(screen.getByTestId('daily-total-time')).toHaveTextContent('25m');
+
+    // Log second item at 50m -> 25m + 50m = 1h 15m
+    const secondIcon = within(morningSection).getByRole('button', {
+      name: 'Morning: session 2',
+    });
+    fireEvent.click(secondIcon);
+    expect(firstIcon).toHaveTextContent('25m');
+    expect(secondIcon).toHaveTextContent('50m');
+    expect(within(morningSection).getByText('1h 15m')).toBeInTheDocument();
+    expect(screen.getByTestId('daily-total-time')).toHaveTextContent('1h 15m');
+
+    // Reset picker to default 25m — logged total must remain 1h 15m
+    fireEvent.click(resetButton);
+    expect(screen.getByRole('button', { name: '25m' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
     );
-    expect(within(eveningSection).getByText('50m')).toBeInTheDocument();
-    expect(screen.getByTestId('daily-total-time')).toHaveTextContent('50m');
-
-    const chip45 = screen.getByRole('button', { name: '45m' });
-    fireEvent.click(chip45);
-
-    expect(chip45).toHaveAttribute('aria-pressed', 'true');
-    expect(within(eveningSection).getByText('1h 30m')).toBeInTheDocument();
-    expect(screen.getByTestId('daily-total-time')).toHaveTextContent('1h 30m');
-
-    const defaultButton = screen.getByRole('button', {
-      name: 'Set as default',
-    });
-    expect(defaultButton).toHaveAttribute('aria-pressed', 'false');
-    fireEvent.click(defaultButton);
-
-    expect(onChangeDefault).toHaveBeenCalledWith(45);
-    expect(defaultButton).toHaveAttribute('aria-pressed', 'true');
+    expect(resetButton).toBeDisabled();
+    expect(within(morningSection).getByText('1h 15m')).toBeInTheDocument();
+    expect(screen.getByTestId('daily-total-time')).toHaveTextContent('1h 15m');
   });
 });
 
-describe('HistoryLog pagination', () => {
+describe('HistoryLog pagination and delete', () => {
   it('paginates 7 logged days into 5 items on page 1 and 2 items on page 2', () => {
     const logs: Record<string, DayLog> = {};
     for (let day = 20; day <= 26; day += 1) {
@@ -262,7 +287,7 @@ describe('HistoryLog pagination', () => {
       logs[date] = {
         date,
         pomodoroMinutes: 25,
-        sessions: { morning: 2, afternoon: 0, evening: 0 },
+        sessions: { morning: [25, 25], afternoon: [], evening: [] },
         updatedAt: `${date}T10:00:00.000Z`,
       };
     }
@@ -302,5 +327,52 @@ describe('HistoryLog pagination', () => {
 
     expect(within(historySection).getAllByRole('listitem')).toHaveLength(5);
     expect(within(historySection).getByText('1 / 2')).toBeInTheDocument();
+  });
+
+  it('requires inline confirmation before calling onDeleteLog and displays mixed-duration totals', () => {
+    const logs: Record<string, DayLog> = {
+      [TODAY]: {
+        date: TODAY,
+        sessions: { morning: [25, 50], afternoon: [30], evening: [] },
+        updatedAt: '2026-11-26T10:00:00.000Z',
+      },
+    };
+    const onDeleteLog = vi.fn();
+
+    render(
+      <HistoryLog
+        logs={logs}
+        selectedDate={TODAY}
+        todayDate={TODAY}
+        onSelectDate={vi.fn()}
+        onDeleteLog={onDeleteLog}
+      />,
+    );
+
+    const historySection = screen.getByRole('region', { name: 'Study log' });
+    expect(within(historySection).getByText('1h 45m')).toBeInTheDocument();
+    expect(within(historySection).getByText('1h 15m')).toBeInTheDocument();
+    expect(within(historySection).getByText('30m')).toBeInTheDocument();
+
+    fireEvent.click(
+      within(historySection).getByRole('button', {
+        name: 'Delete log for Today',
+      }),
+    );
+
+    fireEvent.click(
+      within(historySection).getByRole('button', { name: 'Cancel delete' }),
+    );
+    expect(onDeleteLog).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      within(historySection).getByRole('button', {
+        name: 'Delete log for Today',
+      }),
+    );
+    fireEvent.click(
+      within(historySection).getByRole('button', { name: 'Confirm delete' }),
+    );
+    expect(onDeleteLog).toHaveBeenCalledWith(TODAY);
   });
 });
