@@ -12,7 +12,7 @@ export interface SessionRowProps {
   onChange: (nextItems: number[]) => void;
 }
 
-const DEFAULT_SLOTS = 5;
+const DEFAULT_SLOTS = 4;
 
 interface SessionTheme {
   icon: typeof Sunrise;

@@ -92,7 +92,7 @@ describe('DailyLogger 1-tap interactions', () => {
     expect(screen.getByTestId('daily-total-time')).toHaveTextContent('1h 15m');
   });
 
-  it('adds an inactive numbered 6th slot on + without changing total, then activates all 6 (2h 30m) on clicking #6', () => {
+  it('adds an inactive numbered 5th slot on + without changing total, then activates all 5 (2h 5m) on clicking #5', () => {
     render(<DailyLoggerHarness />);
 
     const morningSection = screen.getByRole('region', {
@@ -104,17 +104,17 @@ describe('DailyLogger 1-tap interactions', () => {
       }),
     );
 
-    const sixthIcon = within(morningSection).getByRole('button', {
-      name: 'Morning: session 6',
+    const fifthIcon = within(morningSection).getByRole('button', {
+      name: 'Morning: session 5',
     });
-    expect(sixthIcon).toHaveTextContent('6');
-    expect(sixthIcon).toHaveAttribute('aria-pressed', 'false');
+    expect(fifthIcon).toHaveTextContent('5');
+    expect(fifthIcon).toHaveAttribute('aria-pressed', 'false');
     expect(within(morningSection).getByText('0m')).toBeInTheDocument();
     expect(screen.getByTestId('daily-total-time')).toHaveTextContent('0m');
 
-    fireEvent.click(sixthIcon);
+    fireEvent.click(fifthIcon);
 
-    for (let i = 1; i <= 6; i += 1) {
+    for (let i = 1; i <= 5; i += 1) {
       expect(
         within(morningSection).getByRole('button', {
           name: `Morning: session ${i}`,
@@ -122,11 +122,11 @@ describe('DailyLogger 1-tap interactions', () => {
       ).toHaveAttribute('aria-pressed', 'true');
     }
 
-    expect(within(morningSection).getByText('2h 30m')).toBeInTheDocument();
-    expect(screen.getByTestId('daily-total-time')).toHaveTextContent('2h 30m');
+    expect(within(morningSection).getByText('2h 5m')).toBeInTheDocument();
+    expect(screen.getByTestId('daily-total-time')).toHaveTextContent('2h 5m');
   });
 
-  it('resets unused extra slots to 5 on date change and remount while preserving active count', () => {
+  it('resets unused extra slots to 4 on date change and remount while preserving active count', () => {
     const { unmount } = render(<DailyLoggerHarness />);
 
     const morningSection = screen.getByRole('region', {
@@ -151,7 +151,7 @@ describe('DailyLogger 1-tap interactions', () => {
 
     expect(
       within(morningSection).getByRole('button', {
-        name: 'Morning: session 7',
+        name: 'Morning: session 6',
       }),
     ).toHaveAttribute('aria-pressed', 'false');
 
@@ -160,14 +160,14 @@ describe('DailyLogger 1-tap interactions', () => {
     );
     expect(
       within(morningSection).queryByRole('button', {
-        name: 'Morning: session 6',
+        name: 'Morning: session 5',
       }),
     ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Switch to today' }));
     expect(
       within(morningSection).queryByRole('button', {
-        name: 'Morning: session 6',
+        name: 'Morning: session 5',
       }),
     ).not.toBeInTheDocument();
     expect(
