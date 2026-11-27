@@ -46,7 +46,7 @@ export function BackupControls({ store, onImportStore }: BackupControlsProps) {
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `pomoday-backup-${getTodayDateKey()}.json`;
+      anchor.download = `promodo-log-backup-${getTodayDateKey()}.json`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();

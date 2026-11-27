@@ -20,8 +20,8 @@ export default defineConfig({
         'icon-512.svg',
       ],
       manifest: {
-        name: 'PomoDay',
-        short_name: 'PomoDay',
+        name: 'Promodo Log',
+        short_name: 'Promodo Log',
         description: 'Minimalist 1-tap Pomodoro study time tracker',
         lang: 'en',
         start_url: '/',
