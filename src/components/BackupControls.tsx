@@ -215,7 +215,7 @@ export function BackupControls({ store, onImportStore }: BackupControlsProps) {
         />
       </div>
 
-      <div className="mt-3 border-t border-slate-100 pt-3">
+      <div className="mt-2.5">
         <div className="flex items-center gap-2">
           <button
             type="button"

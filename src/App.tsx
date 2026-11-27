@@ -66,7 +66,7 @@ export default function App() {
 
   return (
     <div className="min-h-dvh bg-[#F2F6FA] text-slate-900 flex flex-col">
-      <header className="sticky top-0 z-10 bg-white/85 backdrop-blur-md shadow-[0_2px_14px_-4px_rgba(15,23,42,0.07)]">
+      <header className="sticky top-0 z-30 bg-white/85 backdrop-blur-md shadow-[0_2px_14px_-4px_rgba(15,23,42,0.07)]">
         <div className="mx-auto max-w-md px-4 py-3 flex items-center justify-between gap-2">
           <Logo />
 
@@ -132,7 +132,7 @@ export default function App() {
 
       <nav
         aria-label="Main navigation"
-        className="sticky bottom-0 z-10 bg-white/95 backdrop-blur-md shadow-[0_-4px_20px_-6px_rgba(15,23,42,0.08)] safe-bottom"
+        className="sticky bottom-0 z-30 bg-white/95 backdrop-blur-md shadow-[0_-4px_20px_-6px_rgba(15,23,42,0.08)] safe-bottom"
       >
         <div className="mx-auto max-w-md grid grid-cols-2 gap-1.5 px-3 pt-2">
           <button

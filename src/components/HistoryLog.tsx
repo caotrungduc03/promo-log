@@ -109,6 +109,7 @@ function SwipeableHistoryItem({
   }
 
   const translateX = dragOffset ?? (isOpen ? REVEAL_OFFSET : 0);
+  const showDeleteAction = isOpen || (dragOffset !== null && dragOffset < 0);
 
   const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
     if (!canDelete) return;
@@ -180,7 +181,13 @@ function SwipeableHistoryItem({
   return (
     <div className="relative overflow-hidden rounded-2xl">
       {canDelete && (
-        <div className="absolute inset-y-0 right-0 flex w-[76px] items-stretch">
+        <div
+          className={`absolute inset-y-0 right-0 flex w-[76px] items-stretch transition-opacity duration-150 ${
+            showDeleteAction
+              ? 'opacity-100'
+              : 'pointer-events-none opacity-0'
+          }`}
+        >
           <button
             type="button"
             aria-label={`Delete log for ${dateLabel}`}
@@ -210,9 +217,9 @@ function SwipeableHistoryItem({
         }`}
       >
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-semibold">{dateLabel}</span>
+          <span className="text-base font-semibold">{dateLabel}</span>
           <span
-            className={`text-sm font-bold tabular-nums ${
+            className={`text-base font-bold tabular-nums ${
               isSelected ? 'text-emerald-700' : 'text-slate-900'
             }`}
           >
@@ -220,30 +227,30 @@ function SwipeableHistoryItem({
           </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold tabular-nums">
+        <div className="flex flex-wrap items-center gap-2 text-sm font-semibold tabular-nums">
           <span
             aria-label={`Morning ${formatMinutes(morningMinutes)}`}
-            className="inline-flex items-center gap-1 rounded-xl bg-amber-50/90 px-2 py-1 text-amber-700"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-amber-50/90 px-2.5 py-1 text-amber-700"
           >
             <Sunrise
-              className="h-3.5 w-3.5 text-amber-500"
+              className="h-4 w-4 text-amber-500"
               aria-hidden="true"
             />
             {formatMinutes(morningMinutes)}
           </span>
           <span
             aria-label={`Afternoon ${formatMinutes(afternoonMinutes)}`}
-            className="inline-flex items-center gap-1 rounded-xl bg-sky-50/90 px-2 py-1 text-sky-700"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-sky-50/90 px-2.5 py-1 text-sky-700"
           >
-            <Sun className="h-3.5 w-3.5 text-sky-500" aria-hidden="true" />
+            <Sun className="h-4 w-4 text-sky-500" aria-hidden="true" />
             {formatMinutes(afternoonMinutes)}
           </span>
           <span
             aria-label={`Evening ${formatMinutes(eveningMinutes)}`}
-            className="inline-flex items-center gap-1 rounded-xl bg-violet-50/90 px-2 py-1 text-violet-700"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-violet-50/90 px-2.5 py-1 text-violet-700"
           >
             <MoonStar
-              className="h-3.5 w-3.5 text-violet-500"
+              className="h-4 w-4 text-violet-500"
               aria-hidden="true"
             />
             {formatMinutes(eveningMinutes)}
@@ -299,7 +306,7 @@ export function HistoryLog({
           >
             <CalendarDays className="h-4 w-4" />
           </span>
-          <h2 className="text-sm font-semibold text-slate-900">Study Log</h2>
+          <h2 className="text-base font-semibold text-slate-900">Study Log</h2>
         </div>
         <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-500 tabular-nums">
           {entries.length}
