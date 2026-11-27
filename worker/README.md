@@ -8,10 +8,10 @@ Cloudflare Worker làm proxy trung gian giữa app **Promodo Log** và **Google 
 cd worker
 pnpm install
 
-# Tạo file .dev.vars từ file mẫu rồi điền các giá trị từ Service Account JSON:
-cp .dev.vars.example .dev.vars
+# Tạo file .env ở thư mục gốc dự án từ .env.example rồi điền giá trị thật:
+cp ../.env.example ../.env
 
-# Đẩy toàn bộ biến trong .dev.vars lên Cloudflare Secrets trong 1 lệnh:
+# Đẩy toàn bộ biến trong .env gốc lên Cloudflare Secrets trong 1 lệnh:
 pnpm secrets:push
 ```
 
