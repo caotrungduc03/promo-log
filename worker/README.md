@@ -8,13 +8,11 @@ Cloudflare Worker làm proxy trung gian giữa app **Promodo Log** và **Google 
 cd worker
 pnpm install
 
-# Nhập từ file JSON Service Account:
-npx wrangler secret put GOOGLE_CLIENT_EMAIL
-npx wrangler secret put GOOGLE_PRIVATE_KEY
-npx wrangler secret put GOOGLE_SHEET_ID
+# Tạo file .dev.vars từ file mẫu rồi điền các giá trị từ Service Account JSON:
+cp .dev.vars.example .dev.vars
 
-# Khóa bảo mật tự đặt (khuyên dùng để chỉ bạn mới sync được):
-npx wrangler secret put SYNC_SECRET
+# Đẩy toàn bộ biến trong .dev.vars lên Cloudflare Secrets trong 1 lệnh:
+pnpm secrets:push
 ```
 
 *(Tùy chọn)* Trong `wrangler.toml`, sửa `ALLOWED_ORIGIN` thành domain frontend của bạn (ví dụ `https://your-app.pages.dev`) và `SHEET_NAME` nếu tab Sheet không phải `Sheet1`.
