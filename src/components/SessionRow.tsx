@@ -64,12 +64,17 @@ export function SessionRow({
     Math.max(DEFAULT_SLOTS, safeCount),
   );
 
-  if (prevResetKey !== resetKey) {
+  const isResetSynced = prevResetKey === resetKey;
+  const effectiveSlotCount = isResetSynced
+    ? slotCount
+    : Math.max(DEFAULT_SLOTS, safeCount);
+
+  if (!isResetSynced) {
     setPrevResetKey(resetKey);
-    setSlotCount(Math.max(DEFAULT_SLOTS, safeCount));
+    setSlotCount(effectiveSlotCount);
   }
 
-  const visibleCount = Math.max(DEFAULT_SLOTS, safeCount, slotCount);
+  const visibleCount = Math.max(DEFAULT_SLOTS, safeCount, effectiveSlotCount);
   const totalMinutes = items.reduce(
     (sum, minutes) => sum + Math.max(0, minutes),
     0,

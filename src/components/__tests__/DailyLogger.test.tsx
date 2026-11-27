@@ -299,6 +299,16 @@ describe('DailyLogger 1-tap interactions', () => {
         name: 'Morning: session 2',
       }),
     );
+    fireEvent.click(
+      within(morningSection).getByRole('button', {
+        name: 'Morning: add session',
+      }),
+    );
+    expect(
+      within(morningSection).getByRole('button', {
+        name: 'Morning: session 5',
+      }),
+    ).toBeInTheDocument();
 
     expect(onLogSaved).not.toHaveBeenCalled();
     expect(newButton).toBeEnabled();
@@ -306,6 +316,11 @@ describe('DailyLogger 1-tap interactions', () => {
 
     fireEvent.click(newButton);
     expect(screen.getByTestId('daily-total-time')).toHaveTextContent('0m');
+    expect(
+      within(morningSection).queryByRole('button', {
+        name: 'Morning: session 5',
+      }),
+    ).not.toBeInTheDocument();
     expect(newButton).toBeDisabled();
     expect(saveButton).toBeDisabled();
     expect(onLogSaved).not.toHaveBeenCalled();

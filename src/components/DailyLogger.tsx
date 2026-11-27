@@ -58,25 +58,31 @@ export function DailyLogger({
   onChangeDefaultMinutes,
 }: DailyLoggerProps) {
   const [activeMinutes, setActiveMinutes] = useState(defaultPomodoroMinutes);
+  const [resetVersion, setResetVersion] = useState(0);
   const [prevSelectedDate, setPrevSelectedDate] = useState(selectedDate);
   const [prevLog, setPrevLog] = useState(log);
   const [draftSessions, setDraftSessions] = useState<DayLog['sessions']>(
     () => log?.sessions ?? EMPTY_SESSIONS,
   );
 
-  if (prevSelectedDate !== selectedDate || prevLog !== log) {
+  const isStateSynced = prevSelectedDate === selectedDate && prevLog === log;
+  const activeDraftSessions = isStateSynced
+    ? draftSessions
+    : (log?.sessions ?? EMPTY_SESSIONS);
+
+  if (!isStateSynced) {
     setPrevSelectedDate(selectedDate);
     setPrevLog(log);
     setDraftSessions(log?.sessions ?? EMPTY_SESSIONS);
   }
 
   const savedSessions = log?.sessions ?? EMPTY_SESSIONS;
-  const hasUnsavedChanges = !areSessionsEqual(draftSessions, savedSessions);
-  const totalMinutes = sumSessionsMinutes(draftSessions);
+  const hasUnsavedChanges = !areSessionsEqual(activeDraftSessions, savedSessions);
+  const totalMinutes = sumSessionsMinutes(activeDraftSessions);
 
   const handleSessionChange = (sessionKey: SessionKey, nextItems: number[]) => {
-    setDraftSessions((prev) => ({
-      ...prev,
+    setDraftSessions(() => ({
+      ...activeDraftSessions,
       [sessionKey]: nextItems.map(clampMinutes),
     }));
   };
@@ -87,6 +93,8 @@ export function DailyLogger({
 
   const handleNewDraft = () => {
     setDraftSessions(EMPTY_SESSIONS);
+    setActiveMinutes(defaultPomodoroMinutes);
+    setResetVersion((prev) => prev + 1);
   };
 
   const handleCommitLog = () => {
@@ -97,9 +105,9 @@ export function DailyLogger({
       date: selectedDate,
       pomodoroMinutes: activeMinutes,
       sessions: {
-        morning: draftSessions.morning.map(clampMinutes),
-        afternoon: draftSessions.afternoon.map(clampMinutes),
-        evening: draftSessions.evening.map(clampMinutes),
+        morning: activeDraftSessions.morning.map(clampMinutes),
+        afternoon: activeDraftSessions.afternoon.map(clampMinutes),
+        evening: activeDraftSessions.evening.map(clampMinutes),
       },
       updatedAt: new Date().toISOString(),
     });
@@ -144,9 +152,9 @@ export function DailyLogger({
             key={sessionKey}
             sessionKey={sessionKey}
             label={SESSION_LABELS[sessionKey]}
-            items={draftSessions[sessionKey]}
+            items={activeDraftSessions[sessionKey]}
             pomodoroMinutes={activeMinutes}
-            resetKey={selectedDate}
+            resetKey={`${selectedDate}-${resetVersion}-${log?.updatedAt ?? 'empty'}`}
             onChange={(nextItems) => handleSessionChange(sessionKey, nextItems)}
           />
         ))}
@@ -156,9 +164,9 @@ export function DailyLogger({
         <button
           type="button"
           onClick={handleNewDraft}
-          disabled={totalMinutes === 0}
+          disabled={totalMinutes === 0 && activeMinutes === defaultPomodoroMinutes}
           className={`inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-all ${
-            totalMinutes > 0
+            totalMinutes > 0 || activeMinutes !== defaultPomodoroMinutes
               ? 'bg-white text-slate-700 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.06)] hover:bg-slate-50 active:scale-[0.99]'
               : 'cursor-not-allowed bg-slate-200/70 text-slate-400'
           }`}
