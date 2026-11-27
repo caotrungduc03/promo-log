@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc -b --noEmit",
     "worker:dev": "pnpm --dir worker dev",
+    "worker:logs": "pnpm --dir worker logs",
     "worker:secrets": "pnpm --dir worker secrets:push",
     "worker:deploy": "pnpm --dir worker deploy"
   },
