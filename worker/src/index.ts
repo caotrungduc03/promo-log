@@ -273,26 +273,66 @@ function quoteSheetName(name: string): string {
   return `'${name.replace(/'/g, "''")}'`;
 }
 
+async function getSheetTabId(
+  env: Env,
+  accessToken: string,
+  sheetName: string,
+): Promise<number> {
+  const meta = await sheetsRequest<{
+    sheets?: { properties?: { sheetId?: number; title?: string } }[];
+  }>(env, accessToken, '?fields=sheets.properties');
+  const match = meta.sheets?.find(
+    (sheet) => sheet.properties?.title === sheetName,
+  );
+  if (match?.properties?.sheetId === undefined) {
+    throw new HttpError(
+      400,
+      `Sheet tab "${sheetName}" not found (400). Check SHEET_NAME in worker/wrangler.jsonc.`,
+    );
+  }
+  return match.properties.sheetId;
+}
+
 async function handlePostSync(
   request: Request,
   env: Env,
-): Promise<{ ok: true; updated: number; appended: number; total: number }> {
+): Promise<{
+  ok: true;
+  updated: number;
+  appended: number;
+  deleted: number;
+  total: number;
+}> {
   const body = (await request.json()) as {
     logs?: Record<string, DayLogPayload>;
+    deleteDates?: string[];
   };
   if (!body?.logs || typeof body.logs !== 'object') {
     throw new Error('Request body must contain a "logs" object.');
   }
 
+  const deleteDateSet = new Set(
+    Array.isArray(body.deleteDates)
+      ? body.deleteDates.filter(
+          (d): d is string =>
+            typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d),
+        )
+      : [],
+  );
+
   const entries = Object.values(body.logs)
-    .filter((log): log is DayLogPayload => Boolean(log?.date && log?.sessions))
+    .filter(
+      (log): log is DayLogPayload =>
+        Boolean(log?.date && log?.sessions && !deleteDateSet.has(log.date)),
+    )
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  if (entries.length === 0) {
-    return { ok: true, updated: 0, appended: 0, total: 0 };
+  if (entries.length === 0 && deleteDateSet.size === 0) {
+    return { ok: true, updated: 0, appended: 0, deleted: 0, total: 0 };
   }
 
-  const sheetRef = quoteSheetName(env.SHEET_NAME?.trim() || 'Sheet1');
+  const sheetName = env.SHEET_NAME?.trim() || 'Sheet1';
+  const sheetRef = quoteSheetName(sheetName);
   const accessToken = await getGoogleAccessToken(env);
 
   const existing = await sheetsRequest<{ values?: string[][] }>(
@@ -313,7 +353,7 @@ async function handlePostSync(
   const updates: { range: string; values: (string | number)[][] }[] = [];
   const appends: (string | number)[][] = [];
 
-  if (existingRows.length === 0) {
+  if (existingRows.length === 0 && entries.length > 0) {
     appends.push(HEADER_ROW);
   } else if (existingRows[0]?.[0]?.trim() === 'date') {
     updates.push({
@@ -335,12 +375,36 @@ async function handlePostSync(
     }
   }
 
+  const rowsToDelete = Array.from(deleteDateSet)
+    .map((date) => dateToRow.get(date))
+    .filter((rowNumber): rowNumber is number => typeof rowNumber === 'number')
+    .sort((a, b) => b - a);
+
   if (updates.length > 0) {
     await sheetsRequest(env, accessToken, '/values:batchUpdate', {
       method: 'POST',
       body: JSON.stringify({
         valueInputOption: 'USER_ENTERED',
         data: updates,
+      }),
+    });
+  }
+
+  if (rowsToDelete.length > 0) {
+    const sheetId = await getSheetTabId(env, accessToken, sheetName);
+    await sheetsRequest(env, accessToken, ':batchUpdate', {
+      method: 'POST',
+      body: JSON.stringify({
+        requests: rowsToDelete.map((rowNumber) => ({
+          deleteDimension: {
+            range: {
+              sheetId,
+              dimension: 'ROWS',
+              startIndex: rowNumber - 1,
+              endIndex: rowNumber,
+            },
+          },
+        })),
       }),
     });
   }
@@ -358,13 +422,16 @@ async function handlePostSync(
   }
 
   const appendedLogsCount =
-    existingRows.length === 0 ? Math.max(0, appends.length - 1) : appends.length;
+    existingRows.length === 0 && appends.length > 0
+      ? Math.max(0, appends.length - 1)
+      : appends.length;
 
   return {
     ok: true,
     updated: updates.length,
     appended: appendedLogsCount,
-    total: entries.length,
+    deleted: rowsToDelete.length,
+    total: entries.length + rowsToDelete.length,
   };
 }
 
