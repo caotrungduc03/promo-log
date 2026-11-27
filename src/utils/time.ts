@@ -91,18 +91,36 @@ export function getSessionMinutes(
   session: SessionKey,
 ): number {
   if (!log) return 0;
-  const count = Math.max(0, log.sessions[session] ?? 0);
-  const unit = Math.max(0, log.pomodoroMinutes);
-  return count * unit;
+  const items = log.sessions[session];
+  if (!Array.isArray(items)) return 0;
+  return items.reduce((sum, mins) => sum + (Number.isFinite(mins) && mins > 0 ? mins : 0), 0);
+}
+
+export function getSessionCount(
+  log: DayLog | undefined,
+  session: SessionKey,
+): number {
+  if (!log) return 0;
+  const items = log.sessions[session];
+  return Array.isArray(items) ? items.length : 0;
 }
 
 export function getDayTotalMinutes(log: DayLog | undefined): number {
   if (!log) return 0;
-  const totalCount =
-    Math.max(0, log.sessions.morning) +
-    Math.max(0, log.sessions.afternoon) +
-    Math.max(0, log.sessions.evening);
-  return totalCount * Math.max(0, log.pomodoroMinutes);
+  return (
+    getSessionMinutes(log, 'morning') +
+    getSessionMinutes(log, 'afternoon') +
+    getSessionMinutes(log, 'evening')
+  );
+}
+
+export function getDayTotalPomodoros(log: DayLog | undefined): number {
+  if (!log) return 0;
+  return (
+    getSessionCount(log, 'morning') +
+    getSessionCount(log, 'afternoon') +
+    getSessionCount(log, 'evening')
+  );
 }
 
 /**

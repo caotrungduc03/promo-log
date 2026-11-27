@@ -4,7 +4,9 @@ import {
   formatDateLabel,
   formatMinutes,
   getDayTotalMinutes,
+  getDayTotalPomodoros,
   getLastNDates,
+  getSessionCount,
   getSessionMinutes,
   getTodayDateKey,
   shiftDateKey,
@@ -45,21 +47,26 @@ describe('time utils', () => {
     expect(formatMinutes(120)).toBe('2h');
   });
 
-  it('calculates session and day total minutes using day pomodoroMinutes', () => {
+  it('calculates session counts and mixed-duration minutes within one day', () => {
     const log: DayLog = {
       date: '2026-11-26',
-      pomodoroMinutes: 30,
-      sessions: { morning: 2, afternoon: 1, evening: 3 },
+      sessions: { morning: [25, 50], afternoon: [30], evening: [] },
       updatedAt: '2026-11-26T10:00:00.000Z',
     };
 
     expect(getSessionMinutes(undefined, 'morning')).toBe(0);
+    expect(getSessionCount(undefined, 'morning')).toBe(0);
     expect(getDayTotalMinutes(undefined)).toBe(0);
+    expect(getDayTotalPomodoros(undefined)).toBe(0);
 
-    expect(getSessionMinutes(log, 'morning')).toBe(60);
+    expect(getSessionMinutes(log, 'morning')).toBe(75);
+    expect(getSessionCount(log, 'morning')).toBe(2);
     expect(getSessionMinutes(log, 'afternoon')).toBe(30);
-    expect(getSessionMinutes(log, 'evening')).toBe(90);
-    expect(getDayTotalMinutes(log)).toBe(180);
+    expect(getSessionCount(log, 'afternoon')).toBe(1);
+    expect(getSessionMinutes(log, 'evening')).toBe(0);
+    expect(getSessionCount(log, 'evening')).toBe(0);
+    expect(getDayTotalMinutes(log)).toBe(105);
+    expect(getDayTotalPomodoros(log)).toBe(3);
   });
 
   it('formatDateLabel returns Today for today and weekday + Mon D otherwise', () => {

@@ -4,12 +4,14 @@ import {
   STORAGE_KEY,
   createDefaultStore,
   createEmptyDayLog,
+  deleteDayLog,
   exportStoreJson,
   loadStore,
   parseImportedStoreJson,
   saveStore,
   upsertDayLog,
 } from '../storage';
+import { getDayTotalMinutes } from '../time';
 
 describe('storage utils', () => {
   beforeEach(() => {
@@ -26,11 +28,10 @@ describe('storage utils', () => {
     expect(loadStore()).toEqual(createDefaultStore());
   });
 
-  it('saveStore and loadStore round-trip a valid store', () => {
+  it('saveStore and loadStore round-trip mixed-duration pomodoros in one day', () => {
     const log: DayLog = {
       date: '2026-11-26',
-      pomodoroMinutes: 25,
-      sessions: { morning: 2, afternoon: 1, evening: 0 },
+      sessions: { morning: [25, 50], afternoon: [30], evening: [] },
       updatedAt: '2026-11-26T08:00:00.000Z',
     };
     const store: StudyStore = {
@@ -39,21 +40,51 @@ describe('storage utils', () => {
     };
 
     saveStore(store);
-    expect(loadStore()).toEqual(store);
+    const loaded = loadStore();
+    expect(loaded).toEqual(store);
+    expect(getDayTotalMinutes(loaded.logs['2026-11-26'])).toBe(105);
+  });
+
+  it('migrates legacy numeric session counts seamlessly on loadStore and import', () => {
+    const legacyPayload = {
+      defaultPomodoroMinutes: 25,
+      logs: {
+        '2026-11-26': {
+          date: '2026-11-26',
+          pomodoroMinutes: 30,
+          sessions: { morning: 2, afternoon: 1, evening: 0 },
+          updatedAt: '2026-11-26T08:00:00.000Z',
+        },
+      },
+    };
+
+    const raw = JSON.stringify(legacyPayload);
+    window.localStorage.setItem(STORAGE_KEY, raw);
+
+    const expectedSessions = {
+      morning: [30, 30],
+      afternoon: [30],
+      evening: [],
+    };
+
+    const loaded = loadStore();
+    expect(loaded.logs['2026-11-26'].sessions).toEqual(expectedSessions);
+    expect(getDayTotalMinutes(loaded.logs['2026-11-26'])).toBe(90);
+
+    const imported = parseImportedStoreJson(raw);
+    expect(imported.logs['2026-11-26'].sessions).toEqual(expectedSessions);
   });
 
   it('upsertDayLog immutably inserts and updates logs without mutating previous days', () => {
     const initial = createDefaultStore();
     const day1: DayLog = {
       date: '2026-11-25',
-      pomodoroMinutes: 25,
-      sessions: { morning: 2, afternoon: 0, evening: 0 },
+      sessions: { morning: [25, 25], afternoon: [], evening: [] },
       updatedAt: '2026-11-25T10:00:00.000Z',
     };
     const day2: DayLog = {
       date: '2026-11-26',
-      pomodoroMinutes: 30,
-      sessions: { morning: 1, afternoon: 2, evening: 1 },
+      sessions: { morning: [30], afternoon: [45, 25], evening: [50] },
       updatedAt: '2026-11-26T10:00:00.000Z',
     };
 
@@ -61,13 +92,28 @@ describe('storage utils', () => {
     const s2 = upsertDayLog(s1, day2);
 
     expect(initial.logs).toEqual({});
-    expect(s2.logs['2026-11-25'].pomodoroMinutes).toBe(25);
-    expect(s2.logs['2026-11-26'].pomodoroMinutes).toBe(30);
+    expect(s2.logs['2026-11-25'].sessions.morning).toEqual([25, 25]);
+    expect(s2.logs['2026-11-26'].sessions.afternoon).toEqual([45, 25]);
+  });
+
+  it('deleteDayLog immutably removes the target day while preserving others', () => {
+    const day1 = createEmptyDayLog('2026-11-25', 25);
+    day1.sessions.morning = [25, 25];
+    const day2 = createEmptyDayLog('2026-11-26', 30);
+    day2.sessions.afternoon = [30];
+
+    const store = upsertDayLog(upsertDayLog(createDefaultStore(), day1), day2);
+    const updated = deleteDayLog(store, '2026-11-25');
+
+    expect(updated.logs['2026-11-25']).toBeUndefined();
+    expect(updated.logs['2026-11-26']).toEqual(day2);
+    expect(store.logs['2026-11-25']).toEqual(day1);
+    expect(deleteDayLog(updated, '2026-01-01')).toBe(updated);
   });
 
   it('exportStoreJson and parseImportedStoreJson round-trip cleanly', () => {
     const log = createEmptyDayLog('2026-11-26', 25);
-    log.sessions.morning = 3;
+    log.sessions.morning = [25, 45, 50];
     const store = upsertDayLog(createDefaultStore(), log);
 
     const json = exportStoreJson(store);
@@ -98,5 +144,19 @@ describe('storage utils', () => {
         }),
       ),
     ).toThrow(/non-negative integers/);
+    expect(() =>
+      parseImportedStoreJson(
+        JSON.stringify({
+          defaultPomodoroMinutes: 25,
+          logs: {
+            '2026-11-26': {
+              date: '2026-11-26',
+              sessions: { morning: [25, 0], afternoon: [], evening: [] },
+              updatedAt: '2026-11-26T00:00:00.000Z',
+            },
+          },
+        }),
+      ),
+    ).toThrow(/1 and 240 minutes/);
   });
 });

@@ -31,6 +31,48 @@ function isValidSessionCount(value: unknown): value is number {
   );
 }
 
+function clampMinutes(value: number): number {
+  return Math.min(240, Math.max(1, Math.round(value)));
+}
+
+function sanitizeSessionArray(items: number[]): number[] {
+  return items.map((mins) => clampMinutes(mins));
+}
+
+function normalizeSessionEntries(
+  rawValue: unknown,
+  fallbackMinutes: number,
+  dateKey: string,
+): number[] {
+  // Legacy format: non-negative integer count of pomodoros
+  if (typeof rawValue === 'number') {
+    if (!isValidSessionCount(rawValue)) {
+      throw new Error(
+        `Session counts (Morning/Afternoon/Evening) for ${dateKey} must be non-negative integers.`,
+      );
+    }
+    return Array.from({ length: rawValue }, () => fallbackMinutes);
+  }
+
+  // New per-item duration array format
+  if (Array.isArray(rawValue)) {
+    const normalized: number[] = [];
+    for (const entry of rawValue) {
+      if (!isValidPositiveMinutes(entry)) {
+        throw new Error(
+          `Session durations (Morning/Afternoon/Evening) for ${dateKey} must be integers between 1 and 240 minutes.`,
+        );
+      }
+      normalized.push(entry);
+    }
+    return normalized;
+  }
+
+  throw new Error(
+    `Invalid session entries (Morning/Afternoon/Evening) for ${dateKey}.`,
+  );
+}
+
 export function createDefaultStore(): StudyStore {
   return {
     defaultPomodoroMinutes: DEFAULT_POMODORO_MINUTES,
@@ -44,14 +86,82 @@ export function createEmptyDayLog(
 ): DayLog {
   return {
     date,
-    pomodoroMinutes,
+    pomodoroMinutes: clampMinutes(pomodoroMinutes),
     sessions: {
-      morning: 0,
-      afternoon: 0,
-      evening: 0,
+      morning: [],
+      afternoon: [],
+      evening: [],
     },
     updatedAt: new Date().toISOString(),
   };
+}
+
+export function normalizeDayLog(
+  key: string,
+  rawLog: unknown,
+  defaultMinutes: number = DEFAULT_POMODORO_MINUTES,
+): DayLog {
+  if (!DATE_KEY_REGEX.test(key)) {
+    throw new Error(`Invalid date key (expected YYYY-MM-DD): "${key}".`);
+  }
+  if (!isPlainObject(rawLog)) {
+    throw new Error(`Invalid log entry for date ${key}.`);
+  }
+  if (rawLog.date !== key) {
+    throw new Error(`Log date field does not match key "${key}".`);
+  }
+
+  let pomodoroMinutes: number | undefined;
+  if (rawLog.pomodoroMinutes !== undefined) {
+    if (!isValidPositiveMinutes(rawLog.pomodoroMinutes)) {
+      throw new Error(
+        `Pomodoro duration for ${key} must be an integer between 1 and 240 minutes.`,
+      );
+    }
+    pomodoroMinutes = rawLog.pomodoroMinutes;
+  }
+
+  const fallbackMinutes = pomodoroMinutes ?? defaultMinutes;
+
+  if (!isPlainObject(rawLog.sessions)) {
+    throw new Error(`Invalid sessions object for date ${key}.`);
+  }
+
+  const morning = normalizeSessionEntries(
+    rawLog.sessions.morning,
+    fallbackMinutes,
+    key,
+  );
+  const afternoon = normalizeSessionEntries(
+    rawLog.sessions.afternoon,
+    fallbackMinutes,
+    key,
+  );
+  const evening = normalizeSessionEntries(
+    rawLog.sessions.evening,
+    fallbackMinutes,
+    key,
+  );
+
+  if (typeof rawLog.updatedAt !== 'string' || rawLog.updatedAt.trim() === '') {
+    throw new Error(`Invalid updatedAt timestamp for date ${key}.`);
+  }
+
+  const normalized: DayLog = {
+    date: key,
+    sessions: {
+      morning,
+      afternoon,
+      evening,
+    },
+    updatedAt: rawLog.updatedAt,
+  };
+
+  if (pomodoroMinutes !== undefined) {
+    normalized.pomodoroMinutes = pomodoroMinutes;
+  }
+
+  return normalized;
 }
 
 function validateStoreObject(data: unknown): StudyStore {
@@ -72,49 +182,11 @@ function validateStoreObject(data: unknown): StudyStore {
   const normalizedLogs: Record<string, DayLog> = {};
 
   for (const [key, rawLog] of Object.entries(data.logs)) {
-    if (!DATE_KEY_REGEX.test(key)) {
-      throw new Error(`Invalid date key (expected YYYY-MM-DD): "${key}".`);
-    }
-    if (!isPlainObject(rawLog)) {
-      throw new Error(`Invalid log entry for date ${key}.`);
-    }
-    if (rawLog.date !== key) {
-      throw new Error(`Log date field does not match key "${key}".`);
-    }
-    if (!isValidPositiveMinutes(rawLog.pomodoroMinutes)) {
-      throw new Error(
-        `Pomodoro duration for ${key} must be an integer between 1 and 240 minutes.`,
-      );
-    }
-    if (!isPlainObject(rawLog.sessions)) {
-      throw new Error(`Invalid sessions object for date ${key}.`);
-    }
-
-    const { morning, afternoon, evening } = rawLog.sessions;
-    if (
-      !isValidSessionCount(morning) ||
-      !isValidSessionCount(afternoon) ||
-      !isValidSessionCount(evening)
-    ) {
-      throw new Error(
-        `Session counts (Morning/Afternoon/Evening) for ${key} must be non-negative integers.`,
-      );
-    }
-
-    if (typeof rawLog.updatedAt !== 'string' || rawLog.updatedAt.trim() === '') {
-      throw new Error(`Invalid updatedAt timestamp for date ${key}.`);
-    }
-
-    normalizedLogs[key] = {
-      date: key,
-      pomodoroMinutes: rawLog.pomodoroMinutes,
-      sessions: {
-        morning,
-        afternoon,
-        evening,
-      },
-      updatedAt: rawLog.updatedAt,
-    };
+    normalizedLogs[key] = normalizeDayLog(
+      key,
+      rawLog,
+      data.defaultPomodoroMinutes,
+    );
   }
 
   return {
@@ -143,14 +215,17 @@ export function saveStore(store: StudyStore): void {
 export function upsertDayLog(store: StudyStore, log: DayLog): StudyStore {
   const nextLog: DayLog = {
     date: log.date,
-    pomodoroMinutes: log.pomodoroMinutes,
     sessions: {
-      morning: Math.max(0, Math.round(log.sessions.morning)),
-      afternoon: Math.max(0, Math.round(log.sessions.afternoon)),
-      evening: Math.max(0, Math.round(log.sessions.evening)),
+      morning: sanitizeSessionArray(log.sessions.morning),
+      afternoon: sanitizeSessionArray(log.sessions.afternoon),
+      evening: sanitizeSessionArray(log.sessions.evening),
     },
     updatedAt: log.updatedAt || new Date().toISOString(),
   };
+
+  if (log.pomodoroMinutes !== undefined) {
+    nextLog.pomodoroMinutes = clampMinutes(log.pomodoroMinutes);
+  }
 
   return {
     ...store,
@@ -158,6 +233,18 @@ export function upsertDayLog(store: StudyStore, log: DayLog): StudyStore {
       ...store.logs,
       [nextLog.date]: nextLog,
     },
+  };
+}
+
+export function deleteDayLog(store: StudyStore, dateKey: string): StudyStore {
+  if (!(dateKey in store.logs)) {
+    return store;
+  }
+  const nextLogs = { ...store.logs };
+  delete nextLogs[dateKey];
+  return {
+    ...store,
+    logs: nextLogs,
   };
 }
 

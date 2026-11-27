@@ -16,11 +16,11 @@ export const DEFAULT_POMODORO_MINUTES = 25;
 
 export interface DayLog {
   date: string; // YYYY-MM-DD (local date)
-  pomodoroMinutes: number; // default 25, stored per day
+  pomodoroMinutes?: number; // optional last-picked / legacy default duration
   sessions: {
-    morning: number;
-    afternoon: number;
-    evening: number;
+    morning: number[];
+    afternoon: number[];
+    evening: number[];
   };
   updatedAt: string; // ISO timestamp
 }
