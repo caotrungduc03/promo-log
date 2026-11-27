@@ -22,13 +22,13 @@ const SHEETS_API_BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 const HEADER_ROW = [
-  'date',
-  'morning',
-  'afternoon',
-  'evening',
-  'total_minutes',
-  'pomodoro_count',
-  'updated_at',
+  'Date',
+  'Morning (min)',
+  'Afternoon (min)',
+  'Evening (min)',
+  'Total Minutes',
+  'Pomodoros',
+  'Last Updated',
 ];
 
 let cachedAccessToken: { token: string; expiresAtMs: number } | null = null;
@@ -153,6 +153,55 @@ async function getGoogleAccessToken(env: Env): Promise<string> {
   return cachedAccessToken.token;
 }
 
+class HttpError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+function formatSheetsApiError(
+  status: number,
+  rawText: string,
+  sheetName: string,
+): string {
+  let detail = rawText;
+  try {
+    const parsed = JSON.parse(rawText) as {
+      error?: { message?: string; status?: string };
+    };
+    if (parsed.error?.message) {
+      detail = parsed.error.message;
+    }
+  } catch {
+    // Keep raw text when response is not JSON
+  }
+
+  if (status === 401) {
+    return 'Google authentication failed. Check GOOGLE_CLIENT_EMAIL and GOOGLE_PRIVATE_KEY.';
+  }
+  if (status === 403) {
+    if (/has not been used in project|is disabled/i.test(detail)) {
+      return 'Google Sheets API is not enabled in your Google Cloud project.';
+    }
+    return 'Permission denied (403). Share the Google Sheet with your Service Account email as Editor.';
+  }
+  if (status === 404) {
+    return 'Google Sheet not found (404). Check GOOGLE_SHEET_ID and sharing permissions.';
+  }
+  if (status === 400 && /unable to parse range/i.test(detail)) {
+    return `Sheet tab "${sheetName}" not found (400). Check SHEET_NAME in worker/wrangler.jsonc.`;
+  }
+  if (status === 429) {
+    return 'Google Sheets API rate limit exceeded (429). Please try again in a minute.';
+  }
+  if (status >= 500) {
+    return `Google Sheets service temporarily unavailable (${status}). Please retry.`;
+  }
+  return `Google Sheets API error (${status}): ${detail}`;
+}
+
 async function sheetsRequest<T>(
   env: Env,
   accessToken: string,
@@ -171,7 +220,13 @@ async function sheetsRequest<T>(
 
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`Google Sheets API error (${res.status}): ${errText}`);
+    const sheetName = env.SHEET_NAME?.trim() || 'Sheet1';
+    console.error('Google Sheets API error', res.status, errText);
+    const mappedStatus = res.status >= 500 ? 502 : res.status;
+    throw new HttpError(
+      mappedStatus,
+      formatSheetsApiError(res.status, errText, sheetName),
+    );
   }
   return (await res.json()) as T;
 }
@@ -185,9 +240,9 @@ function formatDayLogRow(log: DayLogPayload): (string | number)[] {
 
   return [
     log.date,
-    JSON.stringify(morning),
-    JSON.stringify(afternoon),
-    JSON.stringify(evening),
+    morning.join(', '),
+    afternoon.join(', '),
+    evening.join(', '),
     totalMinutes,
     all.length,
     log.updatedAt,
@@ -195,15 +250,23 @@ function formatDayLogRow(log: DayLogPayload): (string | number)[] {
 }
 
 function parseSessionArray(raw: unknown): number[] {
+  if (typeof raw === 'number' && raw > 0) return [raw];
   if (typeof raw !== 'string' || !raw.trim()) return [];
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed)
-      ? parsed.filter((n): n is number => typeof n === 'number' && n > 0)
-      : [];
-  } catch {
-    return [];
+  const trimmed = raw.trim();
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed: unknown = JSON.parse(trimmed);
+      return Array.isArray(parsed)
+        ? parsed.filter((n): n is number => typeof n === 'number' && n > 0)
+        : [];
+    } catch {
+      return [];
+    }
   }
+  return trimmed
+    .split(',')
+    .map((part) => Number(part.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0);
 }
 
 function quoteSheetName(name: string): string {
@@ -242,7 +305,7 @@ async function handlePostSync(
   const dateToRow = new Map<string, number>();
   existingRows.forEach((row, idx) => {
     const cell = row[0]?.trim();
-    if (cell && cell !== 'date') {
+    if (cell && /^\d{4}-\d{2}-\d{2}$/.test(cell)) {
       dateToRow.set(cell, idx + 1);
     }
   });
@@ -252,6 +315,11 @@ async function handlePostSync(
 
   if (existingRows.length === 0) {
     appends.push(HEADER_ROW);
+  } else if (existingRows[0]?.[0]?.trim() === 'date') {
+    updates.push({
+      range: `${sheetRef}!A1:G1`,
+      values: [HEADER_ROW],
+    });
   }
 
   for (const log of entries) {
@@ -380,9 +448,11 @@ export default {
 
       return jsonResponse({ error: 'Not found' }, 404, corsHeaders);
     } catch (error) {
+      const status = error instanceof HttpError ? error.status : 500;
       const message =
         error instanceof Error ? error.message : 'Unexpected worker error';
-      return jsonResponse({ error: message }, 500, corsHeaders);
+      console.error('Worker request failed', status, message);
+      return jsonResponse({ error: message }, status, corsHeaders);
     }
   },
 };
