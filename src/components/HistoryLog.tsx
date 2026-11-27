@@ -231,7 +231,7 @@ function SwipeableHistoryItem({
           </span>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 text-sm font-semibold tabular-nums">
+        <div className="grid grid-cols-4 gap-2 text-sm font-semibold tabular-nums">
           <span
             aria-label={`Morning ${formatMinutes(morningMinutes)}`}
             className="flex items-center justify-center gap-1.5 rounded-xl bg-amber-50/90 px-2 py-1 whitespace-nowrap text-amber-700"
