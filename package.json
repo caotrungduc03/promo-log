@@ -9,7 +9,10 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "worker:dev": "pnpm --dir worker dev",
+    "worker:secrets": "pnpm --dir worker secrets:push",
+    "worker:deploy": "pnpm --dir worker deploy"
   },
   "dependencies": {
     "lucide-react": "^0.475.0",
