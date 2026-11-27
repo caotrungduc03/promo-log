@@ -7,12 +7,12 @@ export function Logo() {
         aria-hidden="true"
       >
         <defs>
-          <linearGradient id="promodo-log-mark" x1="0%" y1="0%" x2="100%" y2="100%">
+          <linearGradient id="promo-log-mark" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#10b981" />
             <stop offset="100%" stopColor="#0d9488" />
           </linearGradient>
         </defs>
-        <rect width="40" height="40" rx="12" fill="url(#promodo-log-mark)" />
+        <rect width="40" height="40" rx="12" fill="url(#promo-log-mark)" />
         <circle cx="20" cy="20.5" r="10.5" fill="#ffffff" opacity="0.16" />
         <circle
           cx="20"
@@ -36,7 +36,7 @@ export function Logo() {
         />
       </svg>
       <span className="text-lg font-bold tracking-tight text-slate-900">
-        Promodo <span className="text-emerald-600">Log</span>
+        Promo <span className="text-emerald-600">Log</span>
       </span>
     </div>
   );

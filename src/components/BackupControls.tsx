@@ -69,7 +69,7 @@ export function BackupControls({ store, onImportStore }: BackupControlsProps) {
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `promodo-log-backup-${getTodayDateKey()}.json`;
+      anchor.download = `promo-log-backup-${getTodayDateKey()}.json`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
@@ -269,7 +269,7 @@ export function BackupControls({ store, onImportStore }: BackupControlsProps) {
                 type="url"
                 value={draftUrl}
                 onChange={(event) => setDraftUrl(event.target.value)}
-                placeholder="https://pomoday-sheet-sync.your-name.workers.dev"
+                placeholder="https://promo-log-sheet-sync.your-name.workers.dev"
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none focus:border-emerald-500"
               />
             </div>

@@ -165,7 +165,7 @@ describe('BackupControls', () => {
     const input = screen.getByLabelText('Choose JSON backup file');
     const validFile = new File(
       [JSON.stringify(importedStore)],
-      'promodo-log-backup-2026-11-26.json',
+      'promo-log-backup-2026-11-26.json',
       { type: 'application/json' },
     );
 

@@ -1,6 +1,6 @@
-# Promodo Log — Google Sheets Sync Worker
+# Promo Log — Google Sheets Sync Worker
 
-Cloudflare Worker làm proxy trung gian giữa app **Promodo Log** và **Google Sheets API** (dùng Service Account, không lộ link/ID Google Sheet ra client).
+Cloudflare Worker làm proxy trung gian giữa app **Promo Log** và **Google Sheets API** (dùng Service Account, không lộ link/ID Google Sheet ra client).
 
 ## 1. Cài đặt & Cấu hình Secrets
 
@@ -27,4 +27,4 @@ pnpm dev
 pnpm deploy
 ```
 
-Sau khi deploy, copy URL Worker (dạng `https://pomoday-sheet-sync.<subdomain>.workers.dev`) và dán vào mục **Google Sheet Sync** trong tab **Stats** của app.
+Sau khi deploy, copy URL Worker (dạng `https://promo-log-sheet-sync.<subdomain>.workers.dev`) và dán vào mục **Google Sheet Sync** trong tab **Stats** của app.

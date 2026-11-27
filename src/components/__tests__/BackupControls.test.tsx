@@ -23,6 +23,8 @@ describe('BackupControls Google Sheet Sync', () => {
   beforeEach(() => {
     window.localStorage.clear();
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+    vi.stubEnv('VITE_SYNC_WORKER_URL', '');
   });
 
   it('opens settings when Worker URL is missing', () => {
