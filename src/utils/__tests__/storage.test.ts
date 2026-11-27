@@ -106,9 +106,13 @@ describe('storage utils', () => {
     const updated = deleteDayLog(store, '2026-11-25');
 
     expect(updated.logs['2026-11-25']).toBeUndefined();
+    expect(updated.deletedDates?.['2026-11-25']).toBeTruthy();
     expect(updated.logs['2026-11-26']).toEqual(day2);
     expect(store.logs['2026-11-25']).toEqual(day1);
     expect(deleteDayLog(updated, '2026-01-01')).toBe(updated);
+
+    const readded = upsertDayLog(updated, day1);
+    expect(readded.deletedDates).toBeUndefined();
   });
 
   it('exportStoreJson and parseImportedStoreJson round-trip cleanly', () => {

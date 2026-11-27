@@ -73,9 +73,10 @@ export function BackupControls({ store, onImportStore }: BackupControlsProps) {
     Record<string, ConflictResolution>
   >({});
 
-  const pendingCount = Object.keys(
-    getPendingLogsForSync(store.logs, syncConfig.lastSyncedAt),
-  ).length;
+  const pendingCount =
+    Object.keys(
+      getPendingLogsForSync(store.logs, syncConfig.lastSyncedAt),
+    ).length + Object.keys(store.deletedDates ?? {}).length;
 
   const handleExport = () => {
     try {
@@ -156,13 +157,17 @@ export function BackupControls({ store, onImportStore }: BackupControlsProps) {
     nextStore: StudyStore;
     pulled: number;
     pushed: number;
+    deleted: number;
     syncedAt: string;
   }) => {
-    if (result.pulled > 0) {
+    const hadPendingDeletes = Boolean(
+      store.deletedDates && Object.keys(store.deletedDates).length > 0,
+    );
+    if (result.pulled > 0 || result.deleted > 0 || hadPendingDeletes) {
       onImportStore(result.nextStore);
     }
     setSyncConfig((prev) => ({ ...prev, lastSyncedAt: result.syncedAt }));
-    if (result.pulled === 0 && result.pushed === 0) {
+    if (result.pulled === 0 && result.pushed === 0 && result.deleted === 0) {
       setFeedback({
         type: 'success',
         message: 'Already up to date — no changes to sync.',
@@ -176,6 +181,11 @@ export function BackupControls({ store, onImportStore }: BackupControlsProps) {
     }
     if (result.pushed > 0) {
       parts.push(`pushed ${result.pushed} ${result.pushed === 1 ? 'day' : 'days'}`);
+    }
+    if (result.deleted > 0) {
+      parts.push(
+        `deleted ${result.deleted} ${result.deleted === 1 ? 'day' : 'days'}`,
+      );
     }
     setFeedback({
       type: 'success',

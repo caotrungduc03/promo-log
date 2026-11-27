@@ -189,10 +189,28 @@ function validateStoreObject(data: unknown): StudyStore {
     );
   }
 
-  return {
+  const normalizedDeleted: Record<string, string> = {};
+  if (isPlainObject(data.deletedDates)) {
+    for (const [dateKey, deletedAt] of Object.entries(data.deletedDates)) {
+      if (
+        DATE_KEY_REGEX.test(dateKey) &&
+        typeof deletedAt === 'string' &&
+        deletedAt.trim() !== '' &&
+        !(dateKey in normalizedLogs)
+      ) {
+        normalizedDeleted[dateKey] = deletedAt;
+      }
+    }
+  }
+
+  const store: StudyStore = {
     defaultPomodoroMinutes: data.defaultPomodoroMinutes,
     logs: normalizedLogs,
   };
+  if (Object.keys(normalizedDeleted).length > 0) {
+    store.deletedDates = normalizedDeleted;
+  }
+  return store;
 }
 
 export function loadStore(): StudyStore {
@@ -227,13 +245,26 @@ export function upsertDayLog(store: StudyStore, log: DayLog): StudyStore {
     nextLog.pomodoroMinutes = clampMinutes(log.pomodoroMinutes);
   }
 
-  return {
+  let nextDeletedDates = store.deletedDates;
+  if (nextDeletedDates && nextLog.date in nextDeletedDates) {
+    const rest = { ...nextDeletedDates };
+    delete rest[nextLog.date];
+    nextDeletedDates = Object.keys(rest).length > 0 ? rest : undefined;
+  }
+
+  const nextStore: StudyStore = {
     ...store,
     logs: {
       ...store.logs,
       [nextLog.date]: nextLog,
     },
   };
+  if (nextDeletedDates) {
+    nextStore.deletedDates = nextDeletedDates;
+  } else {
+    delete nextStore.deletedDates;
+  }
+  return nextStore;
 }
 
 export function deleteDayLog(store: StudyStore, dateKey: string): StudyStore {
@@ -245,6 +276,10 @@ export function deleteDayLog(store: StudyStore, dateKey: string): StudyStore {
   return {
     ...store,
     logs: nextLogs,
+    deletedDates: {
+      ...store.deletedDates,
+      [dateKey]: new Date().toISOString(),
+    },
   };
 }
 

@@ -28,4 +28,5 @@ export interface DayLog {
 export interface StudyStore {
   defaultPomodoroMinutes: number; // default 25
   logs: Record<string, DayLog>; // keyed by YYYY-MM-DD
+  deletedDates?: Record<string, string>; // dateKey -> deletedAt ISO timestamp
 }

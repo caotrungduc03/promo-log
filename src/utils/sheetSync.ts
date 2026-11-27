@@ -22,7 +22,7 @@ export interface SheetSyncResult {
 
 export interface SyncConflict {
   date: string;
-  local: DayLog;
+  local: DayLog | undefined;
   remote: DayLog;
 }
 
@@ -31,6 +31,7 @@ export type ConflictResolution = 'local' | 'remote';
 export interface TwoWaySyncPlan {
   mergedLogs: Record<string, DayLog>;
   toPushLogs: Record<string, DayLog>;
+  toDeleteDates: string[];
   pulledCount: number;
   conflicts: SyncConflict[];
 }
@@ -41,6 +42,7 @@ export type TwoWaySyncOutcome =
       nextStore: StudyStore;
       pulled: number;
       pushed: number;
+      deleted: number;
       updated: number;
       appended: number;
       syncedAt: string;
@@ -138,19 +140,26 @@ export function planTwoWaySync(
   localLogs: Record<string, DayLog>,
   remoteLogs: Record<string, DayLog>,
   lastSyncedAt?: string,
+  deletedDates: Record<string, string> = {},
 ): TwoWaySyncPlan {
   const allDates = Array.from(
-    new Set([...Object.keys(localLogs), ...Object.keys(remoteLogs)]),
+    new Set([
+      ...Object.keys(localLogs),
+      ...Object.keys(remoteLogs),
+      ...Object.keys(deletedDates),
+    ]),
   ).sort((a, b) => a.localeCompare(b));
 
   const mergedLogs: Record<string, DayLog> = {};
   const toPushLogs: Record<string, DayLog> = {};
+  const toDeleteDates: string[] = [];
   const conflicts: SyncConflict[] = [];
   let pulledCount = 0;
 
   for (const date of allDates) {
     const local = localLogs[date];
     const remote = remoteLogs[date];
+    const deletedAt = deletedDates[date];
 
     if (local && !remote) {
       mergedLogs[date] = local;
@@ -159,6 +168,15 @@ export function planTwoWaySync(
     }
 
     if (!local && remote) {
+      if (deletedAt) {
+        if (remote.updatedAt <= deletedAt) {
+          toDeleteDates.push(date);
+        } else {
+          conflicts.push({ date, local: undefined, remote });
+        }
+        continue;
+      }
+
       mergedLogs[date] = remote;
       pulledCount += 1;
       continue;
@@ -189,6 +207,7 @@ export function planTwoWaySync(
   return {
     mergedLogs,
     toPushLogs,
+    toDeleteDates,
     pulledCount,
     conflicts,
   };
@@ -230,23 +249,27 @@ export async function fetchRemoteLogs(
 async function pushLogsToSheet(
   logs: Record<string, DayLog>,
   config: SheetSyncConfig,
-): Promise<{ updated: number; appended: number; total: number }> {
-  const count = Object.keys(logs).length;
-  if (count === 0) {
-    return { updated: 0, appended: 0, total: 0 };
+  deleteDates: string[] = [],
+): Promise<{ updated: number; appended: number; deleted: number; total: number }> {
+  const pushCount = Object.keys(logs).length;
+  if (pushCount === 0 && deleteDates.length === 0) {
+    return { updated: 0, appended: 0, deleted: 0, total: 0 };
   }
 
   const endpoint = normalizeWorkerSyncUrl(config.workerUrl);
+  const bodyPayload =
+    deleteDates.length > 0 ? { logs, deleteDates } : { logs };
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: buildSyncHeaders(config, true),
-    body: JSON.stringify({ logs }),
+    body: JSON.stringify(bodyPayload),
   });
 
   const payload = (await response.json().catch(() => ({}))) as {
     error?: string;
     updated?: number;
     appended?: number;
+    deleted?: number;
     total?: number;
   };
 
@@ -259,7 +282,18 @@ async function pushLogsToSheet(
   return {
     updated: payload.updated ?? 0,
     appended: payload.appended ?? 0,
-    total: payload.total ?? count,
+    deleted: payload.deleted ?? deleteDates.length,
+    total: payload.total ?? pushCount + deleteDates.length,
+  };
+}
+
+function buildSyncedStore(
+  store: StudyStore,
+  mergedLogs: Record<string, DayLog>,
+): StudyStore {
+  return {
+    defaultPomodoroMinutes: store.defaultPomodoroMinutes,
+    logs: mergedLogs,
   };
 }
 
@@ -268,7 +302,12 @@ export async function syncTwoWayWithSheet(
   config: SheetSyncConfig,
 ): Promise<TwoWaySyncOutcome> {
   const remoteLogs = await fetchRemoteLogs(config, store.defaultPomodoroMinutes);
-  const plan = planTwoWaySync(store.logs, remoteLogs, config.lastSyncedAt);
+  const plan = planTwoWaySync(
+    store.logs,
+    remoteLogs,
+    config.lastSyncedAt,
+    store.deletedDates,
+  );
 
   if (plan.conflicts.length > 0) {
     return {
@@ -278,7 +317,11 @@ export async function syncTwoWayWithSheet(
     };
   }
 
-  const pushResult = await pushLogsToSheet(plan.toPushLogs, config);
+  const pushResult = await pushLogsToSheet(
+    plan.toPushLogs,
+    config,
+    plan.toDeleteDates,
+  );
   const syncedAt = new Date().toISOString();
   saveSyncConfig({
     ...config,
@@ -287,12 +330,10 @@ export async function syncTwoWayWithSheet(
 
   return {
     status: 'synced',
-    nextStore: {
-      ...store,
-      logs: plan.mergedLogs,
-    },
+    nextStore: buildSyncedStore(store, plan.mergedLogs),
     pulled: plan.pulledCount,
-    pushed: pushResult.total,
+    pushed: Object.keys(plan.toPushLogs).length,
+    deleted: pushResult.deleted,
     updated: pushResult.updated,
     appended: pushResult.appended,
     syncedAt,
@@ -307,6 +348,7 @@ export async function resolveTwoWaySyncConflicts(
 ): Promise<Extract<TwoWaySyncOutcome, { status: 'synced' }>> {
   const mergedLogs: Record<string, DayLog> = { ...plan.mergedLogs };
   const toPushLogs: Record<string, DayLog> = { ...plan.toPushLogs };
+  const toDeleteDates: string[] = [...plan.toDeleteDates];
   let pulledCount = plan.pulledCount;
 
   for (const conflict of plan.conflicts) {
@@ -314,13 +356,16 @@ export async function resolveTwoWaySyncConflicts(
     if (choice === 'remote') {
       mergedLogs[conflict.date] = conflict.remote;
       pulledCount += 1;
-    } else {
+    } else if (conflict.local) {
       mergedLogs[conflict.date] = conflict.local;
       toPushLogs[conflict.date] = conflict.local;
+    } else {
+      delete mergedLogs[conflict.date];
+      toDeleteDates.push(conflict.date);
     }
   }
 
-  const pushResult = await pushLogsToSheet(toPushLogs, config);
+  const pushResult = await pushLogsToSheet(toPushLogs, config, toDeleteDates);
   const syncedAt = new Date().toISOString();
   saveSyncConfig({
     ...config,
@@ -329,12 +374,10 @@ export async function resolveTwoWaySyncConflicts(
 
   return {
     status: 'synced',
-    nextStore: {
-      ...store,
-      logs: mergedLogs,
-    },
+    nextStore: buildSyncedStore(store, mergedLogs),
     pulled: pulledCount,
-    pushed: pushResult.total,
+    pushed: Object.keys(toPushLogs).length,
+    deleted: pushResult.deleted,
     updated: pushResult.updated,
     appended: pushResult.appended,
     syncedAt,

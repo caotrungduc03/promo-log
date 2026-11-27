@@ -76,4 +76,29 @@ describe('planTwoWaySync', () => {
     const planFirstSync = planTwoWaySync(localLogs, remoteLogs, undefined);
     expect(planFirstSync.conflicts).toHaveLength(1);
   });
+
+  it('pushes local deletions to Sheet instead of re-pulling deleted days, and flags conflict if remote updated newer', () => {
+    const remoteLogs = {
+      '2026-11-26': makeLog('2026-11-26', [25], '2026-11-26T10:00:00.000Z'),
+      '2026-11-27': makeLog('2026-11-27', [50], '2026-11-27T11:00:00.000Z'),
+    };
+    const deletedDates = {
+      '2026-11-26': '2026-11-27T09:00:00.000Z',
+      '2026-11-27': '2026-11-27T09:00:00.000Z',
+    };
+
+    const plan = planTwoWaySync(
+      {},
+      remoteLogs,
+      '2026-11-26T12:00:00.000Z',
+      deletedDates,
+    );
+
+    expect(plan.pulledCount).toBe(0);
+    expect(plan.mergedLogs['2026-11-26']).toBeUndefined();
+    expect(plan.toDeleteDates).toEqual(['2026-11-26']);
+    expect(plan.conflicts).toHaveLength(1);
+    expect(plan.conflicts[0].date).toBe('2026-11-27');
+    expect(plan.conflicts[0].local).toBeUndefined();
+  });
 });

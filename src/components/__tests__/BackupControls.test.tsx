@@ -245,4 +245,76 @@ describe('BackupControls Google Sheet Sync', () => {
     );
     expect(screen.getByLabelText(/sync secret/i)).toBeInTheDocument();
   });
+
+  it('deletes locally removed days on Sheet instead of re-pulling them', async () => {
+    window.localStorage.setItem(
+      SYNC_CONFIG_STORAGE_KEY,
+      JSON.stringify({
+        workerUrl: 'https://my-worker.example.workers.dev',
+        syncSecret: 'secret',
+        lastSyncedAt: '2026-11-27T08:00:00.000Z',
+      }),
+    );
+
+    const storeWithDeletedDay: StudyStore = {
+      defaultPomodoroMinutes: 25,
+      logs: {},
+      deletedDates: {
+        '2026-11-27': '2026-11-27T10:00:00.000Z',
+      },
+    };
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ok: true,
+          logs: {
+            '2026-11-27': {
+              date: '2026-11-27',
+              sessions: { morning: [25], afternoon: [], evening: [] },
+              updatedAt: '2026-11-27T09:00:00.000Z',
+            },
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ok: true,
+          updated: 0,
+          appended: 0,
+          deleted: 1,
+          total: 1,
+        }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+    const onImportStore = vi.fn();
+
+    render(
+      <BackupControls
+        store={storeWithDeletedDay}
+        onImportStore={onImportStore}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /sync to sheet/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    const [, postInit] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(JSON.parse(String(postInit.body))).toEqual({
+      logs: {},
+      deleteDates: ['2026-11-27'],
+    });
+    expect(onImportStore).toHaveBeenCalledWith({
+      defaultPomodoroMinutes: 25,
+      logs: {},
+    });
+    expect(screen.getByRole('status')).toHaveTextContent(
+      /synced with google sheet \(deleted 1 day\)/i,
+    );
+  });
 });
