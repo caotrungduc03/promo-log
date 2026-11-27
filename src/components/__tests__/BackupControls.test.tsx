@@ -38,14 +38,30 @@ describe('BackupControls Google Sheet Sync', () => {
     );
   });
 
-  it('saves sync settings and posts pending logs with Bearer auth', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ ok: true, updated: 0, appended: 1, total: 1 }),
-    });
+  it('saves sync settings and performs 2-way sync (pull remote + push local) with Bearer auth', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ok: true,
+          logs: {
+            '2026-11-26': {
+              date: '2026-11-26',
+              sessions: { morning: [50], afternoon: [], evening: [] },
+              updatedAt: '2026-11-26T10:00:00.000Z',
+            },
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true, updated: 0, appended: 1, total: 1 }),
+      });
     vi.stubGlobal('fetch', fetchMock);
+    const onImportStore = vi.fn();
 
-    render(<BackupControls store={sampleStore} onImportStore={vi.fn()} />);
+    render(<BackupControls store={sampleStore} onImportStore={onImportStore} />);
 
     fireEvent.click(screen.getByRole('button', { name: /sync settings/i }));
     fireEvent.change(screen.getByLabelText(/worker url/i), {
@@ -59,19 +75,30 @@ describe('BackupControls Google Sheet Sync', () => {
     fireEvent.click(screen.getByRole('button', { name: /sync to sheet/i }));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe('https://my-worker.example.workers.dev/sync');
-    expect(init.method).toBe('POST');
-    expect(init.headers).toMatchObject({
+    const [getUrl, getInit] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(getUrl).toBe('https://my-worker.example.workers.dev/sync');
+    expect(getInit.method).toBe('GET');
+    expect(getInit.headers).toMatchObject({
+      Authorization: 'Bearer top-secret',
+    });
+
+    const [postUrl, postInit] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(postUrl).toBe('https://my-worker.example.workers.dev/sync');
+    expect(postInit.method).toBe('POST');
+    expect(postInit.headers).toMatchObject({
       'Content-Type': 'application/json',
       Authorization: 'Bearer top-secret',
     });
 
+    expect(onImportStore).toHaveBeenCalledTimes(1);
+    expect(onImportStore.mock.calls[0][0].logs['2026-11-26']).toBeDefined();
+    expect(onImportStore.mock.calls[0][0].logs['2026-11-27']).toBeDefined();
+
     expect(screen.getByRole('status')).toHaveTextContent(
-      /synced 1 day to google sheet \(1 new, 0 updated\)/i,
+      /synced with google sheet \(pulled 1 day, pushed 1 day\)/i,
     );
 
     const saved = JSON.parse(
@@ -80,7 +107,7 @@ describe('BackupControls Google Sheet Sync', () => {
     expect(saved.lastSyncedAt).toBeTruthy();
   });
 
-  it('reports up to date when no logs changed since last sync', async () => {
+  it('reports up to date when local and remote match', async () => {
     window.localStorage.setItem(
       SYNC_CONFIG_STORAGE_KEY,
       JSON.stringify({
@@ -89,15 +116,115 @@ describe('BackupControls Google Sheet Sync', () => {
         lastSyncedAt: '2026-11-27T10:00:00.000Z',
       }),
     );
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        logs: sampleStore.logs,
+      }),
+    });
     vi.stubGlobal('fetch', fetchMock);
 
     render(<BackupControls store={sampleStore} onImportStore={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: /sync to sheet/i }));
 
-    expect(fetchMock).not.toHaveBeenCalled();
     expect(await screen.findByRole('status')).toHaveTextContent(
       /already up to date/i,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('prompts on conflict and lets user choose Pull from DB or Overwrite DB', async () => {
+    window.localStorage.setItem(
+      SYNC_CONFIG_STORAGE_KEY,
+      JSON.stringify({
+        workerUrl: 'https://my-worker.example.workers.dev',
+        syncSecret: 'secret',
+        lastSyncedAt: '2026-11-27T08:00:00.000Z',
+      }),
+    );
+
+    const remoteConflictingLog = {
+      date: '2026-11-27',
+      sessions: { morning: [50], afternoon: [], evening: [] },
+      updatedAt: '2026-11-27T09:30:00.000Z',
+    };
+
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        logs: { '2026-11-27': remoteConflictingLog },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const onImportStore = vi.fn();
+
+    const { unmount } = render(
+      <BackupControls store={sampleStore} onImportStore={onImportStore} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /sync to sheet/i }));
+
+    const conflictRegion = await screen.findByRole('region', {
+      name: /sync conflicts/i,
+    });
+    expect(conflictRegion).toHaveTextContent(/1h 15m/i);
+    expect(conflictRegion).toHaveTextContent(/50m/i);
+
+    const applyButton = screen.getByRole('button', { name: /apply sync/i });
+    expect(applyButton).toBeDisabled();
+
+    // Test Pull from DB choice
+    fireEvent.click(screen.getByRole('button', { name: /pull from db/i }));
+    expect(applyButton).toBeEnabled();
+    fireEvent.click(applyButton);
+
+    await waitFor(() => {
+      expect(onImportStore).toHaveBeenCalledTimes(1);
+    });
+    expect(onImportStore.mock.calls[0][0].logs['2026-11-27']).toEqual(
+      remoteConflictingLog,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(
+      /synced with google sheet \(pulled 1 day\)/i,
+    );
+
+    unmount();
+
+    // Next sync: test Overwrite DB choice
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ok: true,
+          logs: { '2026-11-27': remoteConflictingLog },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true, updated: 1, appended: 0, total: 1 }),
+      });
+
+    window.localStorage.setItem(
+      SYNC_CONFIG_STORAGE_KEY,
+      JSON.stringify({
+        workerUrl: 'https://my-worker.example.workers.dev',
+        syncSecret: 'secret',
+        lastSyncedAt: '2026-11-27T08:00:00.000Z',
+      }),
+    );
+
+    render(<BackupControls store={sampleStore} onImportStore={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /sync to sheet/i }));
+    await screen.findByRole('region', { name: /sync conflicts/i });
+    fireEvent.click(screen.getByRole('button', { name: /overwrite db/i }));
+    fireEvent.click(screen.getByRole('button', { name: /apply sync/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+    expect(screen.getByRole('status')).toHaveTextContent(
+      /synced with google sheet \(pushed 1 day\)/i,
     );
   });
 

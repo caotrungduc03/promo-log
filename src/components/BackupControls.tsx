@@ -1,6 +1,7 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import {
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   CloudUpload,
   DatabaseBackup,
@@ -13,12 +14,22 @@ import type { StudyStore } from '../types';
 import {
   getPendingLogsForSync,
   loadSyncConfig,
+  resolveTwoWaySyncConflicts,
   saveSyncConfig,
-  syncLogsToSheet,
+  syncTwoWayWithSheet,
+  type ConflictResolution,
   type SheetSyncConfig,
+  type SyncConflict,
+  type TwoWaySyncPlan,
 } from '../utils/sheetSync';
 import { exportStoreJson, parseImportedStoreJson } from '../utils/storage';
-import { getTodayDateKey } from '../utils/time';
+import {
+  formatDateLabel,
+  formatMinutes,
+  getDayTotalMinutes,
+  getSessionMinutes,
+  getTodayDateKey,
+} from '../utils/time';
 
 export interface BackupControlsProps {
   store: StudyStore;
@@ -55,6 +66,13 @@ export function BackupControls({ store, onImportStore }: BackupControlsProps) {
   );
   const [showSyncSettings, setShowSyncSettings] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [pendingConflicts, setPendingConflicts] = useState<{
+    conflicts: SyncConflict[];
+    plan: TwoWaySyncPlan;
+  } | null>(null);
+  const [conflictChoices, setConflictChoices] = useState<
+    Record<string, ConflictResolution>
+  >({});
 
   const pendingCount = Object.keys(
     getPendingLogsForSync(store.logs, syncConfig.lastSyncedAt),
@@ -135,6 +153,54 @@ export function BackupControls({ store, onImportStore }: BackupControlsProps) {
     });
   };
 
+  const applySyncedOutcome = (result: {
+    nextStore: StudyStore;
+    pulled: number;
+    pushed: number;
+    syncedAt: string;
+  }) => {
+    if (result.pulled > 0) {
+      onImportStore(result.nextStore);
+    }
+    setSyncConfig((prev) => ({ ...prev, lastSyncedAt: result.syncedAt }));
+    if (result.pulled === 0 && result.pushed === 0) {
+      setFeedback({
+        type: 'success',
+        message: 'Already up to date — no changes to sync.',
+      });
+      return;
+    }
+
+    const parts: string[] = [];
+    if (result.pulled > 0) {
+      parts.push(`pulled ${result.pulled} ${result.pulled === 1 ? 'day' : 'days'}`);
+    }
+    if (result.pushed > 0) {
+      parts.push(`pushed ${result.pushed} ${result.pushed === 1 ? 'day' : 'days'}`);
+    }
+    setFeedback({
+      type: 'success',
+      message: `Synced with Google Sheet (${parts.join(', ')}).`,
+    });
+  };
+
+  const handleSyncError = (error: unknown) => {
+    const rawMessage =
+      error instanceof Error
+        ? error.message
+        : 'Failed to sync with Google Sheet.';
+    const isUnauthorized = /unauthorized/i.test(rawMessage);
+    if (isUnauthorized) {
+      setShowSyncSettings(true);
+    }
+    setFeedback({
+      type: 'error',
+      message: isUnauthorized
+        ? 'Unauthorized — please check Sync Secret in Sync settings.'
+        : rawMessage,
+    });
+  };
+
   const handleSyncToSheet = async () => {
     if (!syncConfig.workerUrl.trim()) {
       setShowSyncSettings(true);
@@ -147,35 +213,52 @@ export function BackupControls({ store, onImportStore }: BackupControlsProps) {
 
     setIsSyncing(true);
     setFeedback(null);
+    setPendingConflicts(null);
+    setConflictChoices({});
     try {
-      const result = await syncLogsToSheet(store, syncConfig);
-      if (result.total === 0) {
+      const outcome = await syncTwoWayWithSheet(store, syncConfig);
+      if (outcome.status === 'conflict') {
+        setPendingConflicts({
+          conflicts: outcome.conflicts,
+          plan: outcome.plan,
+        });
         setFeedback({
-          type: 'success',
-          message: 'Already up to date — no new changes to sync.',
+          type: 'error',
+          message: `Sync conflict detected for ${outcome.conflicts.length} ${outcome.conflicts.length === 1 ? 'day' : 'days'}. Choose whether to overwrite the database or pull from it.`,
         });
       } else {
-        setSyncConfig((prev) => ({ ...prev, lastSyncedAt: result.syncedAt }));
-        setFeedback({
-          type: 'success',
-          message: `Synced ${result.total} ${result.total === 1 ? 'day' : 'days'} to Google Sheet (${result.appended} new, ${result.updated} updated).`,
-        });
+        applySyncedOutcome(outcome);
       }
     } catch (error) {
-      const rawMessage =
-        error instanceof Error
-          ? error.message
-          : 'Failed to sync with Google Sheet.';
-      const isUnauthorized = /unauthorized/i.test(rawMessage);
-      if (isUnauthorized) {
-        setShowSyncSettings(true);
-      }
-      setFeedback({
-        type: 'error',
-        message: isUnauthorized
-          ? 'Unauthorized — please check Sync Secret in Sync settings.'
-          : rawMessage,
-      });
+      handleSyncError(error);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleConfirmConflictResolution = async () => {
+    if (!pendingConflicts) return;
+    const allChosen = pendingConflicts.conflicts.every(
+      (conflict) =>
+        conflictChoices[conflict.date] === 'local' ||
+        conflictChoices[conflict.date] === 'remote',
+    );
+    if (!allChosen) return;
+
+    setIsSyncing(true);
+    setFeedback(null);
+    try {
+      const result = await resolveTwoWaySyncConflicts(
+        store,
+        pendingConflicts.plan,
+        conflictChoices,
+        syncConfig,
+      );
+      setPendingConflicts(null);
+      setConflictChoices({});
+      applySyncedOutcome(result);
+    } catch (error) {
+      handleSyncError(error);
     } finally {
       setIsSyncing(false);
     }
@@ -260,6 +343,121 @@ export function BackupControls({ store, onImportStore }: BackupControlsProps) {
             Last synced:{' '}
             {new Date(syncConfig.lastSyncedAt).toLocaleString()}
           </p>
+        )}
+
+        {pendingConflicts && (
+          <div
+            role="region"
+            aria-label="Sync conflicts"
+            className="mt-3 space-y-2.5 rounded-2xl bg-amber-50/90 p-3"
+          >
+            <div className="flex items-center gap-2 text-xs font-semibold text-amber-900">
+              <AlertTriangle
+                className="h-4 w-4 shrink-0 text-amber-600"
+                aria-hidden="true"
+              />
+              <span>Resolve sync conflicts</span>
+            </div>
+
+            <div className="space-y-2">
+              {pendingConflicts.conflicts.map((conflict) => {
+                const choice = conflictChoices[conflict.date];
+                const todayKey = getTodayDateKey();
+                const dateLabel = formatDateLabel(conflict.date, todayKey);
+                const formatBreakdown = (log: typeof conflict.local) =>
+                  `${formatMinutes(getDayTotalMinutes(log))} (M ${formatMinutes(getSessionMinutes(log, 'morning'))} · A ${formatMinutes(getSessionMinutes(log, 'afternoon'))} · E ${formatMinutes(getSessionMinutes(log, 'evening'))})`;
+
+                return (
+                  <div
+                    key={conflict.date}
+                    className="space-y-2 rounded-xl bg-white p-2.5 text-xs shadow-xs"
+                  >
+                    <p className="font-semibold text-slate-900">{dateLabel}</p>
+                    <div className="space-y-1 text-slate-600">
+                      <p>
+                        <span className="font-semibold text-slate-800">
+                          This device:
+                        </span>{' '}
+                        {formatBreakdown(conflict.local)}
+                      </p>
+                      <p>
+                        <span className="font-semibold text-slate-800">
+                          Database:
+                        </span>{' '}
+                        {formatBreakdown(conflict.remote)}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        aria-pressed={choice === 'local'}
+                        onClick={() =>
+                          setConflictChoices((prev) => ({
+                            ...prev,
+                            [conflict.date]: 'local',
+                          }))
+                        }
+                        className={`rounded-lg px-2.5 py-2 font-semibold transition-colors ${
+                          choice === 'local'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                      >
+                        Overwrite DB
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={choice === 'remote'}
+                        onClick={() =>
+                          setConflictChoices((prev) => ({
+                            ...prev,
+                            [conflict.date]: 'remote',
+                          }))
+                        }
+                        className={`rounded-lg px-2.5 py-2 font-semibold transition-colors ${
+                          choice === 'remote'
+                            ? 'bg-sky-600 text-white'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                      >
+                        Pull from DB
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                disabled={isSyncing}
+                onClick={() => {
+                  setPendingConflicts(null);
+                  setConflictChoices({});
+                  setFeedback(null);
+                }}
+                className="rounded-xl bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={
+                  isSyncing ||
+                  !pendingConflicts.conflicts.every(
+                    (conflict) =>
+                      conflictChoices[conflict.date] === 'local' ||
+                      conflictChoices[conflict.date] === 'remote',
+                  )
+                }
+                onClick={handleConfirmConflictResolution}
+                className="rounded-xl bg-amber-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Apply sync
+              </button>
+            </div>
+          </div>
         )}
 
         {showSyncSettings && (
